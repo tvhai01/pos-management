@@ -124,3 +124,9 @@ Stock hiện tại = 100
 Bán 2 sản phẩm
 
 Stock còn lại = 98
+
+## Coding Convention
+
+All project code must follow the rules defined in:
+
+[coding-convention.md](./coding-convention.md)
