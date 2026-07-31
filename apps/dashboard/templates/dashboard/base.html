@@ -1,0 +1,36 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}POS Management System{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'dashboard/style.css' %}">
+</head>
+<body>
+  {% if user.is_authenticated %}
+  <nav class="navbar">
+    <a class="brand" href="{% url 'dashboard:index' %}">POS Management System</a>
+    <div class="nav-user">
+      <span>{{ user.full_name|default:user.email }}</span>
+      <form method="post" action="{% url 'dashboard:logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="link-button">Đăng xuất</button>
+      </form>
+    </div>
+  </nav>
+  {% endif %}
+
+  <div class="page">
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

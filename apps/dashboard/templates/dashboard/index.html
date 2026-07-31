@@ -1,0 +1,24 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Trang chủ — POS Management System{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Chào, {{ user.full_name|default:user.email }}</h1>
+  <p class="text-muted" style="margin-top:-0.75rem">
+    Chọn một chức năng bên dưới để bắt đầu thao tác.
+  </p>
+
+  <div class="module-grid">
+    {% for module in modules %}
+      <div class="module-card">
+        <h3>{{ module.name }}</h3>
+        <p>{{ module.description }}</p>
+        {% if module.available %}
+          <a class="btn" href="{% if module.url_name %}{% url module.url_name %}{% else %}{{ module.url }}{% endif %}">Mở</a>
+        {% else %}
+          <span class="disabled">Không có quyền truy cập</span>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

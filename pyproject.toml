@@ -1,0 +1,117 @@
+[project]
+name = "pos-management-system"
+version = "0.1.0"
+description = "Production-quality POS Management System — Academic Capstone Project"
+requires-python = ">=3.12"
+
+# =============================================================================
+# Black — Code Formatter
+# =============================================================================
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+include = '\.pyi?$'
+
+# =============================================================================
+# Ruff — Linter
+# =============================================================================
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "S",    # flake8-bandit (security)
+    "C4",   # flake8-comprehensions
+    "DTZ",  # flake8-datetimez
+    "T20",  # flake8-print (no print statements)
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific rules
+]
+ignore = [
+    "S101",  # allow assert in tests
+    "B008",  # allow function calls in default arguments (DRF pattern)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S106"]
+"**/migrations/*.py" = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["config", "apps", "shared"]
+
+# =============================================================================
+# isort — Import Sorting
+# =============================================================================
+[tool.isort]
+profile = "black"
+line_length = 88
+known_first_party = ["config", "apps", "shared"]
+known_django = ["django"]
+sections = [
+    "FUTURE",
+    "STDLIB",
+    "THIRDPARTY",
+    "DJANGO",
+    "FIRSTPARTY",
+    "LOCALFOLDER",
+]
+skip_glob = ["**/migrations/*.py"]
+
+# =============================================================================
+# mypy — Type Checking
+# =============================================================================
+[tool.mypy]
+python_version = "3.13"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+plugins = ["mypy_django_plugin.main"]
+
+[tool.django-stubs]
+django_settings_module = "config.settings.development"
+
+# =============================================================================
+# pytest — Testing
+# =============================================================================
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.development"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "--ds=config.settings.development",
+    "-v",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+# =============================================================================
+# coverage — Test Coverage
+# =============================================================================
+[tool.coverage.run]
+source = ["apps", "shared"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/__init__.py",
+    "*/admin.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+fail_under = 80

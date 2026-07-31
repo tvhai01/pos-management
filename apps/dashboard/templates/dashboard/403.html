@@ -1,0 +1,10 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Không có quyền truy cập{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>403 — Không có quyền truy cập</h1>
+  <p>Bạn không có quyền thực hiện thao tác này. Liên hệ quản trị viên nếu bạn
+     cho rằng đây là nhầm lẫn.</p>
+  <a class="btn btn-secondary" href="{% url 'dashboard:index' %}">Về trang chủ</a>
+</div>
+{% endblock %}
