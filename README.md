@@ -2,7 +2,7 @@
 
 Hệ thống Quản lý Bán hàng (Point of Sale) chất lượng production — Đồ án tốt nghiệp UIT.
 
-> 📌 Tài liệu này là **nguồn quy tắc chuẩn (single source of truth)** cho toàn bộ team (kể cả AI agent) khi phát triển thêm tính năng. Trước khi thêm module mới, đọc kỹ mục [Quy tắc Coding & Triển khai](#quy-tắc-coding--triển-khai) và làm theo quy trình mô tả trong [`docs/prompt-features.md`](docs/prompt-features.md).
+> 📌 Tài liệu này là **nguồn quy tắc chuẩn (single source of truth)** cho toàn bộ team (kể cả AI agent) khi phát triển thêm tính năng. Trước khi thêm module mới: viết yêu cầu sản phẩm theo [`docs/template-PRD.md`](docs/template-PRD.md), đọc kỹ mục [Quy tắc Coding & Triển khai](#quy-tắc-coding--triển-khai), rồi làm theo quy trình mô tả trong [`docs/prompt-features.md`](docs/prompt-features.md).
 
 ## Tech Stack
 
@@ -263,9 +263,12 @@ dev lẫn AI agent. Mục này hệ thống hoá lại cách đã làm ở `apps
 module mới (Product, Inventory, Order, Invoice, Payment, ...), trừ khi task
 yêu cầu khác đi một cách tường minh.
 
-> Khi cần khởi tạo một prompt/task để triển khai tính năng mới (cho người hoặc
-> cho AI), dùng template chuẩn tại [`docs/prompt-features.md`](docs/prompt-features.md)
-> — file đó tham chiếu ngược lại đúng các quy tắc trong mục này để đảm bảo mọi
+> Trước khi có prompt kỹ thuật, module mới nên bắt đầu từ một PRD (Product
+> Requirements Document) theo [`docs/template-PRD.md`](docs/template-PRD.md) —
+> mô tả bài toán nghiệp vụ, actor, entity, chức năng ở mức yêu cầu, chưa động
+> đến kiến trúc code. Khi PRD được duyệt, convert sang prompt kỹ thuật theo
+> template chuẩn tại [`docs/prompt-features.md`](docs/prompt-features.md) —
+> file đó tham chiếu ngược lại đúng các quy tắc trong mục này để đảm bảo mọi
 > tính năng được yêu cầu và triển khai theo cùng một khuôn.
 
 ### 1. Kiến trúc phân lớp — phụ thuộc một chiều, không đi tắt
@@ -412,7 +415,11 @@ docker compose exec backend mypy .
 
 ### 10. Checklist — thêm module cho sprint mới
 
-1. Tạo `apps/<tên>/` theo đúng cấu trúc ở mục 2.
+0. Viết PRD theo [`docs/template-PRD.md`](docs/template-PRD.md), review &
+   duyệt trước khi đụng tới code hay viết prompt kỹ thuật.
+1. Convert PRD đã duyệt thành prompt kỹ thuật theo
+   [`docs/prompt-features.md`](docs/prompt-features.md), rồi tạo `apps/<tên>/`
+   theo đúng cấu trúc ở mục 2.
 2. Đăng ký: thêm vào `LOCAL_APPS` trong `config/settings/base.py`, và
    `path("api/v1/", include("apps.<tên>.urls"))` trong `config/urls.py`.
 3. Nếu resource cần RBAC, thêm vào `PermissionResource`
@@ -425,7 +432,8 @@ docker compose exec backend mypy .
    `config/views.py::FEATURE_MODULES` nếu module có endpoint public) và tạo
    `docs/sprint_N.md` (xem `docs/sprint_1.md` / `docs/sprint_2.md` để biết cấu
    trúc chuẩn: Summary → What Was Built → Design Decisions → Files Changed →
-   Next Sprint).
+   Next Sprint). Đối chiếu lại với PRD gốc ở bước 0 — nêu rõ nếu có sai lệch
+   phạm vi so với PRD.
 7. Nếu module cần một màn hình HTML trong `apps/dashboard` (không chỉ JSON
    API), làm theo mục 11 ngay dưới đây — không tạo lại session auth hay
    permission-check logic riêng.
@@ -509,6 +517,7 @@ Xem [.env.example](.env.example) để biết toàn bộ cấu hình khả dụn
 
 | Tài liệu | Mục đích |
 |---|---|
+| [`docs/template-PRD.md`](docs/template-PRD.md) | Template mô tả yêu cầu sản phẩm (PRD) — điền **trước** khi viết prompt kỹ thuật cho module mới. |
 | [`docs/prompt-features.md`](docs/prompt-features.md) | Template & quy tắc viết prompt chuẩn khi triển khai một tính năng/module mới. |
 | [`docs/sprint_0.md`](docs/sprint_0.md) | Hạ tầng nền tảng (Docker, Django, response envelope). |
 | [`docs/sprint_1.md`](docs/sprint_1.md) | Authentication (JWT) & RBAC. |

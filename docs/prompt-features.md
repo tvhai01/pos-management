@@ -11,29 +11,38 @@ triển khai — đều đi qua cùng một khuôn thông tin, để output luô
 - **Đầy đủ** — không thiếu layer (thiếu test, thiếu migration, thiếu cập nhật README...).
 - **Nhất quán** giữa các sprint — Sprint N+1 đọc lại Sprint N mà không bị lệch pattern.
 
-Ba tài liệu này liên kết chặt với nhau, đọc theo vòng:
+Bốn tài liệu này liên kết chặt với nhau, đọc theo vòng, bắt đầu từ PRD:
 
 ```
+docs/template-PRD.md  ──(điền PRD, mô tả nghiệp vụ)──▶  PRD đã duyệt
+        │                                                     │
+        │                                     (convert sang prompt kỹ thuật)
+        ▼                                                     ▼
 README.md  ──(quy tắc code)──▶  prompt-features.md  ──(khi tạo prompt, tham chiếu ngược)──▶  README.md
     ▲                                     │
     │                                     ▼
-docs/sprint_N.md  ◀── (mỗi tính năng triển khai xong phải ghi lại kết quả) ──┘
+docs/sprint_N.md  ◀── (mỗi tính năng triển khai xong phải ghi lại kết quả, đối chiếu ngược cả PRD) ──┘
 ```
 
+- [`docs/template-PRD.md`](template-PRD.md) quy định **yêu cầu sản phẩm phải
+  viết như thế nào** — bài toán nghiệp vụ, actor, entity, chức năng ở mức yêu
+  cầu, chưa đụng tới kiến trúc code. Là bước bắt buộc **trước** file này.
 - `README.md` quy định **code phải trông như thế nào** (layer, RBAC, soft
   delete, response envelope, testing...).
 - `prompt-features.md` (file này) quy định **prompt/task yêu cầu tính năng
-  phải viết như thế nào** để AI/dev có đủ thông tin áp dụng đúng README.
+  phải viết như thế nào** để AI/dev có đủ thông tin áp dụng đúng README, dựa
+  trên PRD đã duyệt ở bước trước.
 - `docs/sprint_N.md` là **bằng chứng đã làm đúng** — tài liệu hoá lại những gì
-  đã triển khai, đối chiếu được với prompt gốc và với README.
+  đã triển khai, đối chiếu được với PRD gốc, prompt gốc, và với README.
 
-> Nếu một trong ba tài liệu thay đổi (vd. thêm quy tắc mới vào README), phải
-> rà soát lại prompt-features.md xem có cần cập nhật mục tương ứng không —
-> tránh để ba tài liệu lệch nhau.
+> Nếu một trong bốn tài liệu thay đổi (vd. thêm quy tắc mới vào README), phải
+> rà soát lại các tài liệu còn lại xem có cần cập nhật mục tương ứng không —
+> tránh để chúng lệch nhau.
 
 ## Khi nào dùng file này
 
-Dùng template ở dưới **mỗi khi**:
+Dùng template ở dưới **mỗi khi**, và **sau khi** đã có PRD được duyệt theo
+[`docs/template-PRD.md`](template-PRD.md):
 
 - Thêm một module nghiệp vụ mới (Product, Inventory, Order, Invoice, Payment, ...).
 - Thêm một entity mới vào module đã có (vd. thêm "Customer Group" vào Customer Management).
@@ -41,7 +50,11 @@ Dùng template ở dưới **mỗi khi**:
 
 Không cần dùng cho: sửa bug nhỏ, refactor không đổi hành vi, thay đổi cấu hình
 hạ tầng (Docker, CI...) — những việc đó mô tả trực tiếp, không cần theo khuôn
-này.
+này (và cũng không cần PRD).
+
+> Nếu chưa có PRD (task nhỏ, không đáng viết PRD đầy đủ), điền thẳng template
+> bên dưới nhưng phải tự trả lời được các câu hỏi "làm gì / cho ai / vì sao"
+> trong đầu trước — đừng bỏ qua bước tư duy đó chỉ vì bỏ qua tài liệu.
 
 ## Nguyên tắc bắt buộc khi viết prompt
 
@@ -201,6 +214,9 @@ Người review (hoặc chính AI agent, ở bước cuối) phải xác nhận:
 - [ ] README đã cập nhật bảng API tương ứng.
 - [ ] `docs/sprint_N.md` đã được tạo, theo đúng cấu trúc chuẩn.
 - [ ] Không có thay đổi ngoài phạm vi ở `apps/accounts` (trừ `PermissionResource`).
+- [ ] Nếu có PRD gốc (`docs/template-PRD.md`), đối chiếu lại: mọi Acceptance
+      Criteria trong PRD đều có chức năng/test tương ứng; mọi sai lệch phạm vi
+      so với PRD được nêu rõ trong `docs/sprint_N.md`.
 
 Nếu thiếu bất kỳ mục nào ở trên, tính năng **chưa được coi là hoàn thành**,
 kể cả khi API "chạy được".
