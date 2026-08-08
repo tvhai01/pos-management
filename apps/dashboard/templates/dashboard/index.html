@@ -1,24 +1,25 @@
 {% extends "dashboard/base.html" %}
 {% block title %}Trang chủ — POS Management System{% endblock %}
+
 {% block content %}
 <div class="card">
-  <h1>Chào, {{ user.full_name|default:user.email }}</h1>
-  <p class="text-muted" style="margin-top:-0.75rem">
-    Chọn một chức năng bên dưới để bắt đầu thao tác.
-  </p>
+  <h1>Chào, {{ request.user.username }}</h1>
+  <p class="text-muted">Chọn một chức năng bên dưới để bắt đầu thao tác.</p>
 
-  <div class="module-grid">
-    {% for module in modules %}
-      <div class="module-card">
-        <h3>{{ module.name }}</h3>
-        <p>{{ module.description }}</p>
-        {% if module.available %}
-          <a class="btn" href="{% if module.url_name %}{% url module.url_name %}{% else %}{{ module.url }}{% endif %}">Mở</a>
-        {% else %}
-          <span class="disabled">Không có quyền truy cập</span>
-        {% endif %}
-      </div>
-    {% endfor %}
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+    <!-- Khách hàng -->
+    <div class="card" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.25rem;">
+      <h3>Khách hàng</h3>
+      <p class="text-muted" style="font-size: 0.9rem;">Tạo, cập nhật, tìm kiếm, xoá mềm khách hàng.</p>
+      <a class="btn" href="{% url 'dashboard:customer-list' %}" style="margin-top: 1rem; display: inline-block;">Mở</a>
+    </div>
+
+    <!-- Django Admin -->
+    <div class="card" style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.25rem;">
+      <h3>Django Admin</h3>
+      <p class="text-muted" style="font-size: 0.9rem;">Trang quản trị dữ liệu trực tiếp (mọi model).</p>
+      <a class="btn" href="/admin/" style="margin-top: 1rem; display: inline-block;">Mở</a>
+    </div>
   </div>
 </div>
 {% endblock %}

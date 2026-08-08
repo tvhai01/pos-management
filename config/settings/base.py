@@ -47,6 +47,7 @@ DJANGO_APPS: list[str] = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.humanize",
 ]
 
 THIRD_PARTY_APPS: list[str] = [
@@ -60,6 +61,7 @@ LOCAL_APPS: list[str] = [
     "apps.accounts",
     "apps.customers",
     "apps.dashboard",
+    "apps.product", 
 ]
 
 INSTALLED_APPS: list[str] = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
