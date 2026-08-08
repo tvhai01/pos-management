@@ -1,0 +1,90 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{% if form.instance.pk %}Sửa sản phẩm{% else %}Thêm sản phẩm{% endif %} — POS Management System{% endblock %}
+
+{% block content %}
+<div class="card">
+  <h1>{% if form.instance.pk %}Sửa sản phẩm — {{ form.instance.name }}{% else %}Thêm sản phẩm{% endif %}</h1>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-error">
+      {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    {% if form.instance.pk %}
+      <div class="form-row">
+        <label>UUID</label>
+        <p style="font-family: monospace; margin: 0.25rem 0 1rem; color: #666;">{{ form.instance.id }}</p>
+      </div>
+    {% endif %}
+
+    {% for field in form %}
+      <div class="form-row">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+
+        {% if field.name == "image" %}
+          {% if form.instance.image %}
+            <div style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 1rem;">
+              <img src="{{ form.instance.image.url }}" alt="Ảnh sản phẩm" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">
+              <label style="font-weight: normal; cursor: pointer; color: #dc3545;">
+                <input type="checkbox" name="image-clear" id="image-clear_id"> Xoá ảnh hiện tại
+              </label>
+            </div>
+          {% endif %}
+          {{ field }}
+        {% else %}
+          {{ field }}
+        {% endif %}
+
+        {% if field.help_text %}
+          <p class="text-muted" style="font-size: 0.85rem; margin-top: 0.25rem;">{{ field.help_text }}</p>
+        {% endif %}
+
+        {% if field.errors %}
+          <p class="form-errors">{{ field.errors|join:", " }}</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    <button type="submit" class="btn">{% if form.instance.pk %}Lưu thay đổi{% else %}Tạo sản phẩm{% endif %}</button>
+    <a class="btn btn-secondary" href="{% url 'dashboard:product-list' %}">Huỷ</a>
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const currencyInputs = document.querySelectorAll('.currency-input');
+  const costPriceInput = document.querySelector('input[name="cost_price"]');
+  const sellingPriceInput = document.querySelector('input[name="selling_price"]');
+
+  currencyInputs.forEach(input => {
+    if (input.value) {
+      let clean = input.value.toString().replace(/\D/g, '');
+      if (clean) input.value = new Intl.NumberFormat('en-US').format(clean);
+    }
+    input.addEventListener('input', function (e) {
+      let cursorPosition = this.selectionStart;
+      let originalLength = this.value.length;
+      let cleanValue = this.value.replace(/\D/g, '');
+      if (!cleanValue) { this.value = ''; return; }
+      let formatted = new Intl.NumberFormat('en-US').format(cleanValue);
+      this.value = formatted;
+      let newLength = formatted.length;
+      cursorPosition = cursorPosition + (newLength - originalLength);
+      this.setSelectionRange(cursorPosition, cursorPosition);
+
+      // Auto-calculate selling price when cost price changes
+      if (this === costPriceInput && cleanValue) {
+        const costPrice = parseFloat(cleanValue);
+        // Default markup: selling price = cost price + 20%
+        const suggestedPrice = Math.ceil(costPrice * 1.2);
+        sellingPriceInput.value = new Intl.NumberFormat('en-US').format(suggestedPrice);
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

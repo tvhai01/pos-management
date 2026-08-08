@@ -27,3 +27,6 @@ django-filter~=25.1
 
 # Environment Variables
 python-decouple~=3.8
+
+# Image processing (required for ImageField)
+Pillow~=11.0

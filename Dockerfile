@@ -37,6 +37,8 @@ FROM base AS development
 # Install development dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements/development.txt
+#mới add
+RUN pip install Pillow
 
 # Copy project source
 COPY . /app/
