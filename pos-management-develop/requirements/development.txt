@@ -1,0 +1,27 @@
+# =============================================================================
+# POS Management System — Development Dependencies
+# =============================================================================
+# Includes base dependencies + dev-only tools.
+# =============================================================================
+
+-r base.txt
+
+# Testing
+pytest~=8.3
+pytest-django~=4.9
+pytest-cov~=6.1
+factory-boy~=3.3
+
+# Code Quality
+black~=25.1
+ruff~=0.9
+isort~=6.0
+
+# Type Checking
+mypy~=1.14
+django-stubs~=5.1
+djangorestframework-stubs~=3.15
+
+# Debugging
+django-debug-toolbar~=5.0
+ipython~=8.31

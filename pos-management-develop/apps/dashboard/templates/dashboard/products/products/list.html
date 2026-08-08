@@ -1,0 +1,114 @@
+{% extends "dashboard/base.html" %}
+{% load humanize %}
+{% block title %}Sản phẩm — POS Management System{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="toolbar" style="margin-bottom:1.25rem">
+    <h1 style="margin:0">Sản phẩm</h1>
+    <div style="margin-left:auto; display:flex; gap:0.4rem; align-items:center">
+      <a class="btn" href="{% url 'dashboard:product-create' %}">+ Thêm sản phẩm</a>
+      <a class="btn btn-danger" href="{% url 'dashboard:trash' %}" title="Thùng rác" aria-label="Thùng rác" style="padding:0.45rem 0.65rem; line-height:1">🗑</a>
+    </div>
+  </div>
+
+  <form class="toolbar" method="get">
+    <input type="text" name="search" placeholder="Tìm theo SKU, tên..." value="{{ search }}">
+
+    <select name="category">
+      <option value="">Tất cả danh mục</option>
+      {% for cat in categories %}
+        <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="status">
+      <option value="">Tất cả trạng thái</option>
+      {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+
+    <button type="submit" class="btn btn-secondary">Lọc</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Mã</th>
+        <th>Ảnh</th>
+        <th>Tên</th>
+        <th>Mô tả</th>
+        <th>Danh mục</th>
+        <th>Giá nhập</th>
+        <th>Giá bán</th>
+        <th>Trạng thái</th>
+        <th>Create By</th>
+        <th>Update By</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for product in products %}
+        <tr>
+          <td>
+            <div><strong>{{ product.sku }}</strong></div>
+            <div style="font-size: 0.7rem; color: #000; margin-top: 3px; font-family: monospace; background: #f0f0f0; padding: 2px 4px; border-radius: 3px;">{{ product.id }}</div>
+          </td>
+          <td>
+            {% if product.image %}
+              <img src="{{ product.image.url }}" alt="{{ product.name }}" style="width: 45px; height: 45px; object-fit: cover; border-radius: 4px;">
+            {% else %}
+              <span style="color: #999;">—</span>
+            {% endif %}
+          </td>
+          <td>{{ product.name }}</td>
+          <td>{{ product.description|default:"—" }}</td>
+          <td>{{ product.category.name|default:"—" }}</td>
+          <td>{{ product.cost_price|floatformat:0|intcomma }}đ</td>
+          <td>{{ product.selling_price|floatformat:0|intcomma }}đ</td>
+          <td><span class="badge badge-{{ product.status }}">{{ product.get_status_display }}</span></td>
+          <td>
+            {% if product.created_by %}
+              <strong>{{ product.created_by.full_name|default:product.created_by.email }}</strong>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+            <br><small class="text-muted">{{ product.created_at|date:"d/m/Y H:i" }}</small>
+          </td>
+          <td>
+            {% if product.updated_by %}
+              <strong>{{ product.updated_by.full_name|default:product.updated_by.email }}</strong>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+            <br><small class="text-muted">{{ product.updated_at|date:"d/m/Y H:i" }}</small>
+          </td>
+          <td>
+            <a href="{% url 'dashboard:product-update' product.id %}">Sửa</a>
+            &nbsp;·&nbsp;
+            <form method="post" action="{% url 'dashboard:product-delete' product.id %}" style="display:inline;" onsubmit="return confirm('Chuyển sản phẩm vào thùng rác?');">
+              {% csrf_token %}
+              <button type="submit" class="link-button" style="color:var(--danger, #dc3545); background:none; border:none; padding:0; cursor:pointer;">Xoá</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="11" class="text-muted">Không có sản phẩm nào phù hợp.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if products.paginator.num_pages > 1 %}
+    <div class="pagination">
+      {% if products.has_previous %}
+        <a href="?page={{ products.previous_page_number }}&search={{ search }}&category={{ selected_category }}&status={{ status }}">« Trước</a>
+      {% endif %}
+      <span class="text-muted">Trang {{ products.number }}/{{ products.paginator.num_pages }}</span>
+      {% if products.has_next %}
+        <a href="?page={{ products.next_page_number }}&search={{ search }}&category={{ selected_category }}&status={{ status }}">Sau »</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Khách hàng — POS Management System{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Khách hàng</h1>
+
+  <form class="toolbar" method="get">
+    <input type="text" name="search" placeholder="Tìm theo mã, tên, SĐT, email..." value="{{ search }}">
+    <select name="status">
+      <option value="">Tất cả trạng thái</option>
+      {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-secondary">Lọc</button>
+    {% if can_create %}
+      <a class="btn" href="{% url 'dashboard:customer-create' %}" style="margin-left:auto">+ Thêm khách hàng</a>
+    {% endif %}
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Mã KH</th>
+        <th>Họ tên</th>
+        <th>SĐT</th>
+        <th>Email</th>
+        <th>Trạng thái</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for customer in page_obj %}
+        <tr>
+          <td>{{ customer.customer_code }}</td>
+          <td>{{ customer.full_name }}</td>
+          <td>{{ customer.phone }}</td>
+          <td>{{ customer.email|default:"—" }}</td>
+          <td><span class="badge badge-{{ customer.status }}">{{ customer.get_status_display }}</span></td>
+          <td>
+            {% if can_update %}
+              <a href="{% url 'dashboard:customer-edit' customer.id %}">Sửa</a>
+            {% endif %}
+            {% if can_delete %}
+              &nbsp;·&nbsp;
+              <a href="{% url 'dashboard:customer-delete' customer.id %}" style="color:var(--danger)">Xoá</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-muted">Không có khách hàng nào phù hợp.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&status={{ status }}">« Trước</a>
+      {% endif %}
+      <span class="text-muted">Trang {{ page_obj.number }}/{{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&status={{ status }}">Sau »</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
