@@ -9,7 +9,8 @@ equivalent of DRF's `HasPermission`), plus Django's own `authenticate`/
 of `AuthService.login` issuing JWTs).
 """
 
-from typing import Any
+from typing import Any, cast
+from uuid import UUID
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
@@ -17,18 +18,33 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_POST
 
+from apps.accounts.models import User
 from apps.accounts.selectors import PermissionSelector
 from apps.customers.constants import CustomerStatus
 from apps.customers.exceptions import CustomerNotFoundError
 from apps.customers.selectors import CustomerSelector
 from apps.customers.services import CustomerService
 from apps.dashboard.decorators import require_permission
-from apps.dashboard.forms import CustomerForm, LoginForm
+from apps.dashboard.forms import CategoryForm, CustomerForm, LoginForm, ProductUIForm
+from apps.product.constants import ProductStatus
+from apps.product.exceptions import (
+    CategoryHasProductsError,
+    CategoryNotFoundError,
+    ProductNotFoundError,
+)
+from apps.product.selectors import CategorySelector, ProductSelector
+from apps.product.services import CategoryService, ProductService
 
 # =============================================================================
 # Auth
 # =============================================================================
+
+
+def _authenticated_user(request: HttpRequest) -> User:
+    """Narrow request.user after login/permission decorators have run."""
+    return cast(User, request.user)
 
 
 def login_view(request: HttpRequest) -> HttpResponse:
@@ -91,7 +107,15 @@ def index(request: HttpRequest) -> HttpResponse:
             "description": "Tạo, cập nhật, tìm kiếm, xoá mềm khách hàng.",
             "url_name": "dashboard:customer-list",
             "available": PermissionSelector.user_has_permission(
-                request.user, "view", "customer"
+                _authenticated_user(request), "view", "customer"
+            ),
+        },
+        {
+            "name": "Sản phẩm",
+            "description": "Quản lý sản phẩm, danh mục, giá và trạng thái kinh doanh.",
+            "url_name": "dashboard:product-list",
+            "available": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "view", "product"
             ),
         },
         {
@@ -132,13 +156,13 @@ def customer_list(request: HttpRequest) -> HttpResponse:
             "status": status,
             "status_choices": CustomerStatus.choices,
             "can_create": PermissionSelector.user_has_permission(
-                request.user, "create", "customer"
+                _authenticated_user(request), "create", "customer"
             ),
             "can_update": PermissionSelector.user_has_permission(
-                request.user, "update", "customer"
+                _authenticated_user(request), "update", "customer"
             ),
             "can_delete": PermissionSelector.user_has_permission(
-                request.user, "delete", "customer"
+                _authenticated_user(request), "delete", "customer"
             ),
         },
     )
@@ -154,7 +178,9 @@ def customer_create(request: HttpRequest) -> HttpResponse:
     form = CustomerForm(request.POST or None)
 
     if request.method == "POST" and form.is_valid():
-        CustomerService.create_customer(**form.cleaned_data, created_by=request.user)
+        CustomerService.create_customer(
+            **form.cleaned_data, created_by=_authenticated_user(request)
+        )
         messages.success(request, "Đã tạo khách hàng thành công.")
         return redirect("dashboard:customer-list")
 
@@ -166,7 +192,7 @@ def customer_create(request: HttpRequest) -> HttpResponse:
 
 
 @require_permission("update", "customer")
-def customer_edit(request: HttpRequest, customer_id: str) -> HttpResponse:
+def customer_edit(request: HttpRequest, customer_id: UUID) -> HttpResponse:
     """Update an existing customer.
 
     GET  /customers/{id}/edit/
@@ -182,7 +208,7 @@ def customer_edit(request: HttpRequest, customer_id: str) -> HttpResponse:
         if form.is_valid():
             CustomerService.update_customer(
                 customer_id=customer_id,
-                updated_by=request.user,
+                updated_by=_authenticated_user(request),
                 **form.cleaned_data,
             )
             messages.success(request, "Đã cập nhật khách hàng thành công.")
@@ -211,7 +237,7 @@ def customer_edit(request: HttpRequest, customer_id: str) -> HttpResponse:
 
 
 @require_permission("delete", "customer")
-def customer_delete(request: HttpRequest, customer_id: str) -> HttpResponse:
+def customer_delete(request: HttpRequest, customer_id: UUID) -> HttpResponse:
     """Confirm and soft-delete a customer.
 
     GET  /customers/{id}/delete/   — confirmation page
@@ -225,7 +251,7 @@ def customer_delete(request: HttpRequest, customer_id: str) -> HttpResponse:
     if request.method == "POST":
         try:
             CustomerService.delete_customer(
-                customer_id=customer_id, deleted_by=request.user
+                customer_id=customer_id, deleted_by=_authenticated_user(request)
             )
             messages.success(request, "Đã xoá khách hàng.")
         except CustomerNotFoundError:
@@ -234,4 +260,265 @@ def customer_delete(request: HttpRequest, customer_id: str) -> HttpResponse:
 
     return render(
         request, "dashboard/customers/confirm_delete.html", {"customer": customer}
+    )
+
+
+# =============================================================================
+# Products / Categories
+# =============================================================================
+
+
+def _dashboard_page_size(value: str, total_count: int) -> int:
+    """Return a bounded page size accepted by Product dashboard lists."""
+    if value == "all":
+        return max(total_count, 1)
+    try:
+        size = int(value)
+    except (TypeError, ValueError):
+        return 20
+    return size if size in {5, 10, 20, 50} else 20
+
+
+@require_permission("view", "product")
+def product_list(request: HttpRequest) -> HttpResponse:
+    """List/search/filter live products with pagination."""
+    search = request.GET.get("search", "").strip()
+    category_id = request.GET.get("category", "").strip()
+    status_value = request.GET.get("status", "").strip()
+    sort = request.GET.get("sort", "").strip()
+    queryset = ProductSelector.search_products(
+        search=search,
+        category_id=category_id,
+        status=status_value,
+        sort=sort,
+    )
+    paginator = Paginator(queryset, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    return render(
+        request,
+        "dashboard/products/products/list.html",
+        {
+            "products": page_obj,
+            "categories": CategorySelector.get_all_categories(),
+            "status_choices": ProductStatus.choices,
+            "search": search,
+            "selected_category": category_id,
+            "status": status_value,
+            "sort": sort,
+            "can_create": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "create", "product"
+            ),
+            "can_update": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "update", "product"
+            ),
+            "can_delete": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "delete", "product"
+            ),
+        },
+    )
+
+
+@require_permission("create", "product")
+def product_create(request: HttpRequest) -> HttpResponse:
+    """Create a Product through ProductService."""
+    form = ProductUIForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        payload = form.cleaned_data.copy()
+        category = payload.pop("category", None)
+        ProductService.create_product(
+            **payload,
+            category_id=category.id if category else None,
+            created_by=_authenticated_user(request),
+        )
+        messages.success(request, "Đã tạo sản phẩm thành công.")
+        return redirect("dashboard:product-list")
+    return render(
+        request,
+        "dashboard/products/products/create.html",
+        {"form": form, "title": "Thêm sản phẩm"},
+    )
+
+
+@require_permission("update", "product")
+def product_update(request: HttpRequest, product_id: UUID) -> HttpResponse:
+    """Update mutable Product fields through ProductService."""
+    product = ProductSelector.get_product_by_id(product_id)
+    if product is None:
+        messages.error(request, "Không tìm thấy sản phẩm.")
+        return redirect("dashboard:product-list")
+    form = ProductUIForm(
+        request.POST or None,
+        request.FILES or None,
+        instance=product,
+    )
+    if request.method == "POST" and form.is_valid():
+        payload = form.cleaned_data.copy()
+        payload.pop("sku", None)
+        category = payload.pop("category", None)
+        ProductService.update_product(
+            product_id=product.id,
+            category_id=category.id if category else None,
+            updated_by=_authenticated_user(request),
+            **payload,
+        )
+        messages.success(request, "Đã cập nhật sản phẩm thành công.")
+        return redirect("dashboard:product-list")
+    return render(
+        request,
+        "dashboard/products/products/create.html",
+        {"form": form, "title": "Sửa sản phẩm", "product": product},
+    )
+
+
+@require_POST
+@require_permission("delete", "product")
+def product_delete(request: HttpRequest, product_id: UUID) -> HttpResponse:
+    """Soft-delete a Product through ProductService."""
+    try:
+        ProductService.delete_product(
+            product_id, deleted_by=_authenticated_user(request)
+        )
+        messages.success(request, "Đã chuyển sản phẩm vào thùng rác.")
+    except ProductNotFoundError:
+        messages.error(request, "Không tìm thấy sản phẩm.")
+    return redirect("dashboard:product-list")
+
+
+@require_POST
+@require_permission("update", "product")
+def product_restore(request: HttpRequest, product_id: UUID) -> HttpResponse:
+    """Restore a soft-deleted Product through ProductService."""
+    try:
+        ProductService.restore_product(
+            product_id, restored_by=_authenticated_user(request)
+        )
+        messages.success(request, "Đã khôi phục sản phẩm.")
+    except ProductNotFoundError:
+        messages.error(request, "Không tìm thấy sản phẩm đã xóa.")
+    except CategoryNotFoundError:
+        messages.error(request, "Hãy khôi phục danh mục của sản phẩm trước.")
+    return redirect("dashboard:trash")
+
+
+@require_permission("view", "category")
+def category_list(request: HttpRequest) -> HttpResponse:
+    """List/search/filter live categories with pagination."""
+    search = request.GET.get("search", "").strip()
+    has_products = request.GET.get("has_products", "").strip()
+    sort = request.GET.get("sort", "").strip()
+    per_page = request.GET.get("per_page", "20").strip()
+    queryset = CategorySelector.search_categories(search, has_products, sort)
+    paginator = Paginator(
+        queryset,
+        _dashboard_page_size(per_page, queryset.count()),
+    )
+    return render(
+        request,
+        "dashboard/products/categories/list.html",
+        {
+            "categories": paginator.get_page(request.GET.get("page")),
+            "search": search,
+            "has_products": has_products,
+            "sort": sort,
+            "per_page": per_page,
+            "can_create": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "create", "category"
+            ),
+            "can_update": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "update", "category"
+            ),
+            "can_delete": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "delete", "category"
+            ),
+        },
+    )
+
+
+@require_permission("create", "category")
+def category_create(request: HttpRequest) -> HttpResponse:
+    """Create a Category through CategoryService."""
+    form = CategoryForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        CategoryService.create_category(
+            **form.cleaned_data,
+            created_by=_authenticated_user(request),
+        )
+        messages.success(request, "Đã tạo danh mục thành công.")
+        return redirect("dashboard:category-list")
+    return render(
+        request,
+        "dashboard/products/categories/form.html",
+        {"form": form, "title": "Thêm danh mục"},
+    )
+
+
+@require_permission("update", "category")
+def category_update(request: HttpRequest, category_id: UUID) -> HttpResponse:
+    """Update a Category through CategoryService."""
+    category = CategorySelector.get_category_by_id(category_id)
+    if category is None:
+        messages.error(request, "Không tìm thấy danh mục.")
+        return redirect("dashboard:category-list")
+    form = CategoryForm(request.POST or None, instance=category)
+    if request.method == "POST" and form.is_valid():
+        CategoryService.update_category(
+            category_id=category.id,
+            updated_by=_authenticated_user(request),
+            **form.cleaned_data,
+        )
+        messages.success(request, "Đã cập nhật danh mục thành công.")
+        return redirect("dashboard:category-list")
+    return render(
+        request,
+        "dashboard/products/categories/form.html",
+        {"form": form, "title": "Sửa danh mục", "category": category},
+    )
+
+
+@require_POST
+@require_permission("delete", "category")
+def category_delete(request: HttpRequest, category_id: UUID) -> HttpResponse:
+    """Soft-delete an empty Category through CategoryService."""
+    try:
+        CategoryService.delete_category(
+            category_id, deleted_by=_authenticated_user(request)
+        )
+        messages.success(request, "Đã chuyển danh mục vào thùng rác.")
+    except CategoryHasProductsError:
+        messages.error(request, "Không thể xóa danh mục đang chứa sản phẩm.")
+    except CategoryNotFoundError:
+        messages.error(request, "Không tìm thấy danh mục.")
+    return redirect("dashboard:category-list")
+
+
+@require_POST
+@require_permission("update", "category")
+def category_restore(request: HttpRequest, category_id: UUID) -> HttpResponse:
+    """Restore a soft-deleted Category through CategoryService."""
+    try:
+        CategoryService.restore_category(
+            category_id, restored_by=_authenticated_user(request)
+        )
+        messages.success(request, "Đã khôi phục danh mục.")
+    except CategoryNotFoundError:
+        messages.error(request, "Không tìm thấy danh mục đã xóa.")
+    return redirect("dashboard:trash")
+
+
+@require_permission("view", "product")
+def trash(request: HttpRequest) -> HttpResponse:
+    """Show soft-deleted Product and Category records for restoration."""
+    return render(
+        request,
+        "dashboard/products/trash/trash.html",
+        {
+            "products": ProductSelector.get_deleted_products(),
+            "categories": CategorySelector.get_deleted_categories(),
+            "can_restore_product": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "update", "product"
+            ),
+            "can_restore_category": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "update", "category"
+            ),
+        },
     )

@@ -1,142 +1,131 @@
-import uuid
-from django.conf import settings
+"""Product catalogue models used by Inventory, Order, and Invoice modules."""
+
+from decimal import Decimal
+from typing import ClassVar
+
 from django.db import models
+from django.db.models import F, Q
+from django.utils import timezone
+
+from apps.product.constants import ProductStatus, ProductUnit
+from apps.product.managers import ActiveRecordManager
+from shared.base_model import AuditModel
 
 
-class BaseModel(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    created_at = models.DateTimeField("Ngày tạo", auto_now_add=True)
-    updated_at = models.DateTimeField("Ngày cập nhật", auto_now=True)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
+class Category(AuditModel):
+    """A soft-deletable category used to group products."""
+
+    name = models.CharField(max_length=100, unique=True, verbose_name="Tên danh mục")
+    description = models.TextField(blank=True, default="", verbose_name="Mô tả")
+    is_deleted = models.BooleanField(default=False, verbose_name="Đã xóa")
+    deleted_at = models.DateTimeField(
         null=True,
         blank=True,
-        related_name="%(class)s_created",
+        verbose_name="Thời điểm xóa",
     )
-    updated_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="%(class)s_updated",
-    )
-    deleted_at = models.DateTimeField("Thời gian xóa", null=True, blank=True, db_index=True)
 
-    class Meta:
-        abstract = True
+    objects = ActiveRecordManager()
+    all_objects = models.Manager()
 
-
-class Category(BaseModel):
-    name = models.CharField("Tên danh mục", max_length=255)
-    description = models.TextField("Mô tả", blank=True, null=True)
-
-    class Meta:
-        ordering = ["-created_at"]
+    class Meta(AuditModel.Meta):
+        db_table = "product_category"
         verbose_name = "Danh mục"
         verbose_name_plural = "Danh mục"
+        ordering = ["name"]  # noqa: RUF012 - Django Meta API expects a list
+        indexes: ClassVar[tuple[models.Index, ...]] = (
+            models.Index(fields=["is_deleted"], name="idx_category_is_deleted"),
+        )
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the category name."""
         return self.name
 
+    def soft_delete(self) -> None:
+        """Mark the category as deleted without removing its row."""
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
 
-class Product(BaseModel):
-    class Status(models.TextChoices):
-        ACTIVE = "active", "Đang kinh doanh"
-        INACTIVE = "inactive", "Ngừng kinh doanh"
 
-    class Unit(models.TextChoices):
-        CAI = "cái", "Cái"
-        CHIEC = "chiếc", "Chiếc"
-        HOP = "hộp", "Hộp"
-        GOI = "gói", "Gói"
-        KG = "kg", "Kg"
-        GRAM = "gram", "Gram"
-        LIT = "lít", "Lít"
-        ML = "ml", "Ml"
-        MET = "mét", "Mét"
-        CAN = "can", "Can"
-        CHAI = "chai", "Chai"
-        LOC = "lốc", "Lốc"
-        THUNG = "thùng", "Thùng"
-        BAO = "bao", "Bao"
+class Product(AuditModel):
+    """A sellable product with an immutable, globally unique SKU."""
 
-    sku = models.CharField("Mã sản phẩm / SKU", max_length=50, unique=True)
-    name = models.CharField("Tên sản phẩm", max_length=255)
-    description = models.TextField("Mô tả", blank=True, null=True)
+    sku = models.CharField(max_length=50, unique=True, verbose_name="Mã sản phẩm")
+    name = models.CharField(max_length=255, verbose_name="Tên sản phẩm")
+    description = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Mô tả sản phẩm",
+    )
     category = models.ForeignKey(
         Category,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="products",
-        verbose_name="Danh mục"
+        verbose_name="Danh mục",
     )
     unit = models.CharField(
-        "Đơn vị tính",
         max_length=50,
-        choices=Unit.choices,
-        blank=True,
-        default=Unit.CAI
+        choices=ProductUnit.choices,
+        default=ProductUnit.PIECE,
+        verbose_name="Đơn vị tính",
     )
-    image = models.ImageField("Hình ảnh", upload_to="products/", null=True, blank=True)
+    image = models.ImageField(
+        upload_to="products/",
+        blank=True,
+        verbose_name="Hình ảnh sản phẩm",
+    )
     cost_price = models.DecimalField(
-        "Giá nhập", max_digits=14, decimal_places=2, default=0
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Giá nhập",
     )
     selling_price = models.DecimalField(
-        "Giá bán", max_digits=14, decimal_places=2, default=0
+        max_digits=14,
+        decimal_places=2,
+        verbose_name="Giá bán",
     )
     status = models.CharField(
-        "Trạng thái",
         max_length=10,
-        choices=Status.choices,
-        default=Status.ACTIVE,
+        choices=ProductStatus.choices,
+        default=ProductStatus.ACTIVE,
+        verbose_name="Trạng thái",
+    )
+    is_deleted = models.BooleanField(default=False, verbose_name="Đã xóa")
+    deleted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Thời điểm xóa",
     )
 
-    class Meta:
-        ordering = ["-created_at"]
-        verbose_name = "Sản phẩm"
-        verbose_name_plural = "Danh sách sản phẩm"
+    objects = ActiveRecordManager()
+    all_objects = models.Manager()
 
-    def __str__(self):
+    class Meta(AuditModel.Meta):
+        db_table = "product_product"
+        verbose_name = "Sản phẩm"
+        verbose_name_plural = "Sản phẩm"
+        ordering = ["-created_at"]  # noqa: RUF012 - Django Meta API expects a list
+        indexes: ClassVar[tuple[models.Index, ...]] = (
+            models.Index(fields=["status"], name="idx_product_status"),
+            models.Index(fields=["is_deleted"], name="idx_product_is_deleted"),
+        )
+        constraints: ClassVar[tuple[models.BaseConstraint, ...]] = (
+            models.CheckConstraint(
+                condition=Q(cost_price__gte=Decimal("0.01")),
+                name="product_cost_price_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(selling_price__gt=F("cost_price")),
+                name="product_selling_price_gt_cost",
+            ),
+        )
+
+    def __str__(self) -> str:
+        """Return a readable SKU and product name."""
         return f"{self.sku} - {self.name}"
 
-    # -------------------------------------------------------------------------
-    # PRODUCT_TXN_GUARD — tìm keyword này khi thêm module Kho / Order / Invoice
-    #
-    # Hiện chưa có app Order/Stock/Invoice → hasattr(...) = False → không lỗi.
-    # Sau này thêm FK từ model con → Product, BẮT BUỘC dùng đúng related_name:
-    #
-    #   StockMovement.product  → related_name="stock_movements"
-    #   OrderItem.product      → related_name="order_items"
-    #   InvoiceLine.product    → related_name="invoices"   (hoặc model tương đương)
-    #
-    # Khuyến nghị: on_delete=models.PROTECT trên các FK trên.
-    #
-    # Các chỗ gọi method này (cùng keyword PRODUCT_TXN_GUARD):
-    #   - apps/product/admin.py      (_hard_delete_products, ProductTrashAdmin)
-    #   - apps/product/views.py      (product_hard_delete_view, product_soft_delete_view)
-    #   - apps/dashboard/forms.py    (ProductUIForm — khóa SKU)
-    #   - apps/product/forms.py      (ProductUIForm — khóa SKU)
-    #   - templates/.../trash.html   (ẩn nút "Xóa hẳn")
-    # -------------------------------------------------------------------------
-    def has_transaction_history(self) -> bool:
-        """True nếu SP đã phát sinh giao dịch (kho, đơn hàng, hóa đơn). Xem PRODUCT_TXN_GUARD."""
-        has_stock = hasattr(self, "stock_movements") and self.stock_movements.exists()
-        has_orders = hasattr(self, "order_items") and self.order_items.exists()
-        has_invoices = hasattr(self, "invoices") and self.invoices.exists()
-        return has_stock or has_orders or has_invoices
-
-#thùng rác
-class CategoryTrash(Category):
-    class Meta:
-        proxy = True
-        verbose_name = "Thùng rác danh mục"
-        verbose_name_plural = "Thùng rác danh mục"
-
-
-class ProductTrash(Product):
-    class Meta:
-        proxy = True
-        verbose_name = "Thùng rác sản phẩm"
-        verbose_name_plural = "Thùng rác sản phẩm"
+    def soft_delete(self) -> None:
+        """Mark the product as deleted without removing its row."""
+        self.is_deleted = True
+        self.deleted_at = timezone.now()

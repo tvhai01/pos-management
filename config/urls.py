@@ -21,7 +21,7 @@ urlpatterns: list = [
     path("api/v1/", HomeView.as_view(), name="api-root"),
     path("api/v1/", include("apps.accounts.urls")),
     path("api/v1/", include("apps.customers.urls")),
-    #path("api/v1/", include("apps.product.urls")),
+    path("api/v1/", include("apps.product.urls")),
 ]
 
 # Debug Toolbar — only in development
@@ -30,7 +30,8 @@ if settings.DEBUG:
 
     urlpatterns = [
         path("__debug__/", include(debug_toolbar.urls)),
-    ] + urlpatterns
+        *urlpatterns,
+    ]
 
 # Serve media files in development
 if settings.DEBUG:

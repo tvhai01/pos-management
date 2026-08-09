@@ -1,178 +1,43 @@
+{% extends "dashboard/base.html" %}
 {% load humanize %}
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <title>Thùng rác hệ thống</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-</head>
-<body class="container-fluid py-4 px-4">
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
+{% block title %}Thùng rác sản phẩm — POS Management System{% endblock %}
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Thùng rác hệ thống</h2>
-        <div>
-            <a href="{% url 'dashboard:category-list' %}" class="btn btn-outline-secondary">Danh mục</a>
-            <a href="{% url 'dashboard:product-list' %}" class="btn btn-primary">Sản phẩm</a>
-        </div>
+{% block content %}
+<div class="card">
+  <div class="toolbar">
+    <h1>Thùng rác sản phẩm</h1>
+    <div style="margin-left:auto;display:flex;gap:.5rem">
+      <a class="btn btn-secondary" href="{% url 'dashboard:category-list' %}">Danh mục</a>
+      <a class="btn" href="{% url 'dashboard:product-list' %}">Sản phẩm</a>
     </div>
+  </div>
 
-    <!-- BẢNG 1: DANH MỤC ĐÃ XÓA -->
-    <h4 class="text-danger mb-3">Danh mục đã xóa</h4>
-    <div class="table-responsive mb-5">
-        <table class="table table-bordered table-hover align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>Tên danh mục</th>
-                    <th>Mô tả</th>
-                    <th>Người tạo</th>
-                    <th>Thời gian xóa</th>
-                    <th class="text-center">Thao tác</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for category in categories %}
-                <tr>
-                    <td><strong class="text-primary">{{ category.name }}</strong></td>
-                    <td>{{ category.description|default:"-" }}</td>
-                    <td>
-                        {% if category.created_by %}
-                            <strong>{{ category.created_by.full_name|default:category.created_by.email }}</strong>
-                        {% else %}
-                            <span class="text-muted">Hệ thống</span>
-                        {% endif %}
-                    </td>
-                    <td><small class="text-danger fw-bold">{{ category.deleted_at|date:"d/m/Y H:i" }}</small></td>
-                    <td class="text-center text-nowrap">
-                        <form method="post" action="{% url 'dashboard:category-restore' category.id %}" class="d-inline">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-success">Khôi phục</button>
-                        </form>
-                        <form method="post" action="{% url 'dashboard:category-hard-delete' category.id %}" class="d-inline">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger"
-                                    onclick="return confirm('Bạn có chắc chắn muốn XÓA HẲN danh mục này khỏi CSDL?');">
-                                Xóa hẳn
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5" class="text-center text-muted py-3">Không có danh mục nào trong thùng rác.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+  <h2>Danh mục đã xóa</h2>
+  <table>
+    <thead><tr><th>Tên</th><th>Mô tả</th><th>Thời gian xóa</th><th></th></tr></thead>
+    <tbody>
+      {% for category in categories %}
+        <tr>
+          <td>{{ category.name }}</td><td>{{ category.description|default:"—" }}</td><td>{{ category.deleted_at|date:"d/m/Y H:i" }}</td>
+          <td>{% if can_restore_category %}<form method="post" action="{% url 'dashboard:category-restore' category.id %}">{% csrf_token %}<button class="btn" type="submit">Khôi phục</button></form>{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="4" class="text-muted">Không có danh mục đã xóa.</td></tr>{% endfor %}
+    </tbody>
+  </table>
 
-    <!-- BẢNG 2: SẢN PHẨM ĐÃ XÓA -->
-    <h4 class="text-danger mb-3">Sản phẩm đã xóa</h4>
-    <div class="table-responsive">
-        <table class="table table-bordered table-hover align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th>Mã SKU</th>
-                    <th class="text-center">Hình ảnh</th>
-                    <th>Tên sản phẩm</th>
-                    <th>Danh mục</th>
-                    <th>Giá nhập / Giá bán</th>
-                    <th>Đơn vị</th>
-                    <th>Trạng thái</th>
-                    <th>Người tạo & Ngày tạo</th>
-                    <th>Thời gian xóa</th>
-                    <th class="text-center">Thao tác</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in products %}
-                <tr>
-                    <td>
-                        <span class="fw-bold text-primary">{{ item.sku }}</span><br>
-                        <small class="text-muted" style="font-size: 11px;">
-                            UUID: {{ item.id|stringformat:"s"|slice:":8" }}...
-                        </small>
-                    </td>
-                    <td class="text-center">
-                        {% if item.image %}
-                            <img src="{{ item.image.url }}" alt="{{ item.name }}" class="rounded border" style="width: 48px; height: 48px; object-fit: cover;">
-                        {% else %}
-                            <span class="text-muted small">-</span>
-                        {% endif %}
-                    </td>
-                    <td><div class="fw-bold">{{ item.name }}</div></td>
-                    <td>
-                        {% if item.category %}
-                            <span class="badge bg-info text-dark">{{ item.category.name }}</span>
-                        {% else %}
-                            <span class="text-muted small">Chưa phân loại</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <small class="text-muted">Nhập:</small> {{ item.cost_price|floatformat:0|intcomma }}đ<br>
-                        <small class="text-muted">Bán:</small> <strong class="text-success">{{ item.selling_price|floatformat:0|intcomma }}đ</strong>
-                    </td>
-                    <td>{{ item.get_unit_display|default:item.unit }}</td>
-                    <td>
-                        <span class="badge {% if item.status == 'active' %}bg-success{% else %}bg-secondary{% endif %}">
-                            {{ item.get_status_display }}
-                        </span>
-                    </td>
-                    <td>
-                        <div>
-                            {% if item.created_by %}
-                                <strong>{{ item.created_by.full_name|default:item.created_by.email }}</strong>
-                            {% else %}
-                                <span class="text-muted">Hệ thống</span>
-                            {% endif %}
-                        </div>
-                        <small class="text-muted">{{ item.created_at|date:"d/m/Y H:i" }}</small>
-                    </td>
-                    <td>
-                        <div>
-                            {% if item.updated_by %}
-                                <strong>{{ item.updated_by.full_name|default:item.updated_by.email }}</strong>
-                            {% else %}
-                                <span class="text-muted">-</span>
-                            {% endif %}
-                        </div>
-                        <small class="text-danger fw-bold">{{ item.deleted_at|date:"d/m/Y H:i" }}</small>
-                    </td>
-                    <td class="text-center text-nowrap">
-                        <form method="post" action="{% url 'dashboard:product-restore' item.id %}" class="d-inline">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-success">Khôi phục</button>
-                        </form>
-                        {# PRODUCT_TXN_GUARD — ẩn "Xóa hẳn" nếu SP đã có Kho/Order/Invoice #}
-                        {% if not item.has_transaction_history %}
-                        <form method="post" action="{% url 'dashboard:product-hard-delete' item.id %}" class="d-inline">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-danger"
-                                    onclick="return confirm('Bạn có chắc chắn muốn XÓA HẲN sản phẩm này khỏi CSDL?');">
-                                Xóa hẳn
-                            </button>
-                        </form>
-                        {% else %}
-                        <span class="badge bg-secondary ms-1" title="Đã phát sinh giao dịch Kho/Đơn/Hóa đơn">Không thể xóa hẳn</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="10" class="text-center text-muted py-4">Thùng rác trống! Không có sản phẩm nào.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+  <h2 style="margin-top:2rem">Sản phẩm đã xóa</h2>
+  <table>
+    <thead><tr><th>SKU</th><th>Tên</th><th>Danh mục</th><th>Giá bán</th><th>Thời gian xóa</th><th></th></tr></thead>
+    <tbody>
+      {% for product in products %}
+        <tr>
+          <td>{{ product.sku }}</td><td>{{ product.name }}</td><td>{{ product.category.name|default:"—" }}</td><td>{{ product.selling_price|floatformat:0|intcomma }}đ</td><td>{{ product.deleted_at|date:"d/m/Y H:i" }}</td>
+          <td>{% if can_restore_product %}<form method="post" action="{% url 'dashboard:product-restore' product.id %}">{% csrf_token %}<button class="btn" type="submit">Khôi phục</button></form>{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="6" class="text-muted">Không có sản phẩm đã xóa.</td></tr>{% endfor %}
+    </tbody>
+  </table>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+  <p class="text-muted" style="margin-top:1rem">Dữ liệu đã xóa mềm được giữ lại để bảo toàn lịch sử kho, đơn hàng và hóa đơn.</p>
+</div>
+{% endblock %}

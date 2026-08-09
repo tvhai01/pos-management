@@ -5,6 +5,8 @@ Provides reusable fixtures for creating test users, API clients,
 roles, permissions, and other common test dependencies.
 """
 
+from decimal import Decimal
+
 import pytest
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -12,6 +14,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.accounts.constants import PermissionAction, PermissionResource
 from apps.accounts.models import Permission, Role, User, UserRole
 from apps.customers.models import Customer
+from apps.product.models import Category, Product
 
 # =============================================================================
 # API Client Fixtures
@@ -449,4 +452,92 @@ def authenticated_customer_client(
         An APIClient authenticated as the customer-manager user.
     """
     api_client.force_authenticate(user=user_with_customer_role)
+    return api_client
+
+
+# =============================================================================
+# Product Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def product_category() -> Category:
+    """Create a live category for Product tests."""
+    return Category.objects.create(name="Beverages", description="Drinks")
+
+
+@pytest.fixture
+def product_data(product_category: Category) -> dict:
+    """Return valid Product creation data."""
+    return {
+        "sku": "SP001",
+        "name": "Mineral Water",
+        "description": "500 ml bottle",
+        "category_id": product_category.id,
+        "unit": "bottle",
+        "cost_price": Decimal("5000.00"),
+        "selling_price": Decimal("7000.00"),
+        "status": "active",
+    }
+
+
+@pytest.fixture
+def product(product_category: Category) -> Product:
+    """Create a persisted live Product."""
+    return Product.objects.create(
+        sku="SP001",
+        name="Mineral Water",
+        description="500 ml bottle",
+        category=product_category,
+        unit="bottle",
+        cost_price=Decimal("5000.00"),
+        selling_price=Decimal("7000.00"),
+        status="active",
+    )
+
+
+@pytest.fixture
+def all_product_permissions() -> list[Permission]:
+    """Create all Product and Category permissions used by tests."""
+    definitions = [
+        (PermissionAction.VIEW, PermissionResource.PRODUCT),
+        (PermissionAction.CREATE, PermissionResource.PRODUCT),
+        (PermissionAction.UPDATE, PermissionResource.PRODUCT),
+        (PermissionAction.DELETE, PermissionResource.PRODUCT),
+        (PermissionAction.VIEW, PermissionResource.CATEGORY),
+        (PermissionAction.CREATE, PermissionResource.CATEGORY),
+        (PermissionAction.UPDATE, PermissionResource.CATEGORY),
+        (PermissionAction.DELETE, PermissionResource.CATEGORY),
+    ]
+    return [
+        Permission.objects.create(
+            name=f"{action.value.title()} {resource.value.title()}",
+            action=action,
+            resource=resource,
+        )
+        for action, resource in definitions
+    ]
+
+
+@pytest.fixture
+def product_manager_role(all_product_permissions: list[Permission]) -> Role:
+    """Create a role with full Product and Category management access."""
+    role = Role.objects.create(name="Product Manager")
+    role.permissions.set(all_product_permissions)
+    return role
+
+
+@pytest.fixture
+def user_with_product_role(create_user: User, product_manager_role: Role) -> User:
+    """Assign full Product permissions to the standard test user."""
+    UserRole.objects.create(user=create_user, role=product_manager_role)
+    return create_user
+
+
+@pytest.fixture
+def authenticated_product_client(
+    api_client: APIClient, user_with_product_role: User
+) -> APIClient:
+    """Return an API client authenticated with Product permissions."""
+    api_client.force_authenticate(user=user_with_product_role)
     return api_client
