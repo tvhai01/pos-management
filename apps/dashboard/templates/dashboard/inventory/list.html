@@ -44,8 +44,8 @@
           <td><strong>{{ inventory.product.sku }}</strong></td>
           <td>{{ inventory.product.name }}<br><small class="text-muted">Đơn vị: {{ inventory.product.get_unit_display }}</small></td>
           <td>{{ inventory.product.category.name|default:"—" }}</td>
-          <td><strong>{{ inventory.quantity|floatformat:3 }}</strong></td>
-          <td>{{ inventory.low_stock_threshold|floatformat:3 }}</td>
+          <td><strong>{{ inventory.quantity|floatformat:"-3" }}</strong> {{ inventory.product.get_unit_display }}</td>
+          <td>{{ inventory.low_stock_threshold|floatformat:"-3" }} {{ inventory.product.get_unit_display }}</td>
           <td>
             {% if inventory.stock_status == "out_of_stock" %}
               <span class="badge" style="background:#fee2e2;color:#991b1b">Hết hàng</span>

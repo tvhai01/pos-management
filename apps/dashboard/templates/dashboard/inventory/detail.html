@@ -9,8 +9,8 @@
 <div class="card">
   <h1>{{ inventory.product.sku }} — {{ inventory.product.name }}</h1>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-top:1rem">
-    <div class="card"><small class="text-muted">Tồn hiện tại</small><h2>{{ inventory.quantity|floatformat:3 }} {{ inventory.product.get_unit_display }}</h2></div>
-    <div class="card"><small class="text-muted">Ngưỡng tồn thấp</small><h2>{{ inventory.low_stock_threshold|floatformat:3 }}</h2></div>
+    <div class="card"><small class="text-muted">Tồn hiện tại</small><h2>{{ inventory.quantity|floatformat:"-3" }} {{ inventory.product.get_unit_display }}</h2></div>
+    <div class="card"><small class="text-muted">Ngưỡng tồn thấp</small><h2>{{ inventory.low_stock_threshold|floatformat:"-3" }} {{ inventory.product.get_unit_display }}</h2></div>
     <div class="card"><small class="text-muted">Trạng thái</small><h2>{{ inventory.stock_status_label }}</h2></div>
   </div>
 </div>
@@ -49,9 +49,9 @@
       <tr>
         <td>{{ movement.created_at|date:"d/m/Y H:i:s" }}</td>
         <td>{{ movement.get_movement_type_display }}</td>
-        <td><strong>{% if movement.quantity_delta > 0 %}+{% endif %}{{ movement.quantity_delta|floatformat:3 }}</strong></td>
-        <td>{{ movement.balance_before|floatformat:3 }}</td>
-        <td>{{ movement.balance_after|floatformat:3 }}</td>
+        <td><strong>{% if movement.quantity_delta > 0 %}+{% endif %}{{ movement.quantity_delta|floatformat:"-3" }}</strong></td>
+        <td>{{ movement.balance_before|floatformat:"-3" }}</td>
+        <td>{{ movement.balance_after|floatformat:"-3" }}</td>
         <td>{{ movement.reference_code|default:"—" }}{% if movement.note %}<br><small class="text-muted">{{ movement.note }}</small>{% endif %}</td>
         <td>{{ movement.created_by.email|default:"Hệ thống" }}</td>
       </tr>

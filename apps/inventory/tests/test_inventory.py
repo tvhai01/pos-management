@@ -391,6 +391,8 @@ class TestInventoryDashboard:
         inventory.refresh_from_db()
         assert listed.status_code == status.HTTP_200_OK
         assert detail.status_code == status.HTTP_200_OK
+        assert "10 Chai" in detail.content.decode()
+        assert "10.000 Chai" not in detail.content.decode()
         assert movement.status_code == status.HTTP_302_FOUND
         assert threshold.status_code == status.HTTP_302_FOUND
         assert inventory.quantity == Decimal("6.000")

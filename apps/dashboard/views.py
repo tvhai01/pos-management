@@ -602,7 +602,11 @@ def inventory_detail(request: HttpRequest, product_id: UUID) -> HttpResponse:
             "movements": paginator.get_page(request.GET.get("page")),
             "movement_form": StockMovementForm(),
             "threshold_form": LowStockThresholdForm(
-                initial={"low_stock_threshold": inventory.low_stock_threshold}
+                initial={
+                    "low_stock_threshold": format(
+                        inventory.low_stock_threshold.normalize(), "f"
+                    )
+                }
             ),
             "can_create_movement": PermissionSelector.user_has_permission(
                 _authenticated_user(request), "create", "inventory"
