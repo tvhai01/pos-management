@@ -149,6 +149,12 @@ class ProductService:
             created_by=created_by,
             updated_by=created_by,
         )
+
+        # Give every Product a stable zero-balance row. Inventory remains the
+        # sole owner of later quantity mutations.
+        from apps.inventory.services import InventoryService
+
+        InventoryService.initialize_inventory(product, created_by=created_by)
         logger.info("Product created: %s", product.sku)
         return product
 

@@ -27,7 +27,22 @@ from apps.customers.exceptions import CustomerNotFoundError
 from apps.customers.selectors import CustomerSelector
 from apps.customers.services import CustomerService
 from apps.dashboard.decorators import require_permission
-from apps.dashboard.forms import CategoryForm, CustomerForm, LoginForm, ProductUIForm
+from apps.dashboard.forms import (
+    CategoryForm,
+    CustomerForm,
+    LoginForm,
+    LowStockThresholdForm,
+    ProductUIForm,
+    StockMovementForm,
+)
+from apps.inventory.constants import StockStatus
+from apps.inventory.exceptions import (
+    InsufficientStockError,
+    InventoryProductNotFoundError,
+    NoStockChangeError,
+)
+from apps.inventory.selectors import InventorySelector, StockMovementSelector
+from apps.inventory.services import InventoryService
 from apps.product.constants import ProductStatus
 from apps.product.exceptions import (
     CategoryHasProductsError,
@@ -116,6 +131,14 @@ def index(request: HttpRequest) -> HttpResponse:
             "url_name": "dashboard:product-list",
             "available": PermissionSelector.user_has_permission(
                 _authenticated_user(request), "view", "product"
+            ),
+        },
+        {
+            "name": "Kho hàng",
+            "description": "Theo dõi tồn, nhập, xuất và điều chỉnh số lượng.",
+            "url_name": "dashboard:inventory-list",
+            "available": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "view", "inventory"
             ),
         },
         {
@@ -522,3 +545,114 @@ def trash(request: HttpRequest) -> HttpResponse:
             ),
         },
     )
+
+
+# =============================================================================
+# Inventory
+# =============================================================================
+
+
+@require_permission("view", "inventory")
+def inventory_list(request: HttpRequest) -> HttpResponse:
+    """List/search/filter Product stock balances."""
+    search = request.GET.get("search", "").strip()
+    category_id = request.GET.get("category", "").strip()
+    product_status = request.GET.get("product_status", "").strip()
+    stock_status = request.GET.get("stock_status", "").strip()
+    queryset = InventorySelector.search_inventories(
+        search=search,
+        category_id=category_id,
+        product_status=product_status,
+        stock_status=stock_status,
+    )
+    paginator = Paginator(queryset, 20)
+    return render(
+        request,
+        "dashboard/inventory/list.html",
+        {
+            "inventories": paginator.get_page(request.GET.get("page")),
+            "categories": CategorySelector.get_all_categories(),
+            "product_status_choices": ProductStatus.choices,
+            "stock_status_choices": StockStatus.choices,
+            "search": search,
+            "selected_category": category_id,
+            "product_status": product_status,
+            "stock_status": stock_status,
+            "can_create_movement": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "create", "inventory"
+            ),
+        },
+    )
+
+
+@require_permission("view", "inventory")
+def inventory_detail(request: HttpRequest, product_id: UUID) -> HttpResponse:
+    """Show one current balance and its immutable movement history."""
+    inventory = InventorySelector.get_inventory_by_product_id(product_id)
+    if inventory is None:
+        messages.error(request, "Không tìm thấy tồn kho của sản phẩm.")
+        return redirect("dashboard:inventory-list")
+    movements = StockMovementSelector.get_product_movements(product_id)
+    paginator = Paginator(movements, 10)
+    return render(
+        request,
+        "dashboard/inventory/detail.html",
+        {
+            "inventory": inventory,
+            "movements": paginator.get_page(request.GET.get("page")),
+            "movement_form": StockMovementForm(),
+            "threshold_form": LowStockThresholdForm(
+                initial={"low_stock_threshold": inventory.low_stock_threshold}
+            ),
+            "can_create_movement": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "create", "inventory"
+            ),
+            "can_update_threshold": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "update", "inventory"
+            ),
+        },
+    )
+
+
+@require_POST
+@require_permission("create", "inventory")
+def inventory_movement(request: HttpRequest, product_id: UUID) -> HttpResponse:
+    """Record an inbound, outbound or adjustment movement."""
+    form = StockMovementForm(request.POST)
+    if form.is_valid():
+        try:
+            InventoryService.record_movement(
+                product_id=product_id,
+                created_by=_authenticated_user(request),
+                **form.cleaned_data,
+            )
+            messages.success(request, "Đã ghi nhận giao dịch kho.")
+        except InsufficientStockError:
+            messages.error(request, "Không đủ số lượng tồn để xuất kho.")
+        except NoStockChangeError:
+            messages.error(request, "Số tồn điều chỉnh không thay đổi.")
+        except InventoryProductNotFoundError:
+            messages.error(request, "Sản phẩm không tồn tại hoặc đã bị xóa.")
+    else:
+        messages.error(request, "Dữ liệu giao dịch kho không hợp lệ.")
+    return redirect("dashboard:inventory-detail", product_id=product_id)
+
+
+@require_POST
+@require_permission("update", "inventory")
+def inventory_threshold(request: HttpRequest, product_id: UUID) -> HttpResponse:
+    """Update one Product's low-stock warning threshold."""
+    form = LowStockThresholdForm(request.POST)
+    if form.is_valid():
+        try:
+            InventoryService.update_low_stock_threshold(
+                product_id=product_id,
+                threshold=form.cleaned_data["low_stock_threshold"],
+                updated_by=_authenticated_user(request),
+            )
+            messages.success(request, "Đã cập nhật ngưỡng tồn thấp.")
+        except InventoryProductNotFoundError:
+            messages.error(request, "Sản phẩm không tồn tại hoặc đã bị xóa.")
+    else:
+        messages.error(request, "Ngưỡng tồn thấp không hợp lệ.")
+    return redirect("dashboard:inventory-detail", product_id=product_id)

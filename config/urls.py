@@ -22,6 +22,7 @@ urlpatterns: list = [
     path("api/v1/", include("apps.accounts.urls")),
     path("api/v1/", include("apps.customers.urls")),
     path("api/v1/", include("apps.product.urls")),
+    path("api/v1/", include("apps.inventory.urls")),
 ]
 
 # Debug Toolbar — only in development

@@ -190,6 +190,10 @@ trang 403.
 | `GET`/`POST` | `/categories/{id}/update/` | Form sửa danh mục | Session | `update:category` |
 | `POST` | `/categories/{id}/delete/` | Xoá mềm danh mục nếu không còn sản phẩm tham chiếu | Session | `delete:category` |
 | `GET` | `/trash/` | Thùng rác và thao tác khôi phục Product/Category | Session | Quyền Product/Category tương ứng |
+| `GET` | `/inventory/` | Danh sách/tìm kiếm/lọc tồn kho (có phân trang) | Session | `view:inventory` |
+| `GET` | `/inventory/{product_id}/` | Chi tiết tồn và lịch sử biến động | Session | `view:inventory` |
+| `POST` | `/inventory/{product_id}/movement/` | Nhập/xuất/điều chỉnh tồn kho | Session | `create:inventory` |
+| `POST` | `/inventory/{product_id}/threshold/` | Cập nhật ngưỡng tồn thấp | Session | `update:inventory` |
 
 ### JSON API Root
 
@@ -268,6 +272,25 @@ Tham số query của `GET /api/v1/products/`:
 | `category` | Lọc theo UUID của danh mục. |
 | `ordering` | Sắp xếp theo trường được hỗ trợ; thêm `-` phía trước để giảm dần. |
 | `page`, `page_size` | Phân trang chuẩn của dự án. |
+
+### Quản lý Kho (Inventory Management)
+
+| Method | Endpoint | Mô tả | Auth | Permission |
+|---|---|---|---|---|
+| `GET` | `/api/v1/inventory/` | Danh sách tồn hiện tại theo Product | Có | `view:inventory` |
+| `GET` | `/api/v1/inventory/{product_id}/` | Chi tiết tồn của một Product | Có | `view:inventory` |
+| `PATCH` | `/api/v1/inventory/{product_id}/threshold/` | Cập nhật ngưỡng cảnh báo tồn thấp | Có | `update:inventory` |
+| `GET` | `/api/v1/inventory/movements/` | Lịch sử biến động (có phân trang) | Có | `view:inventory` |
+| `POST` | `/api/v1/inventory/movements/` | Nhập, xuất hoặc điều chỉnh số tồn | Có | `create:inventory` |
+
+Tham số query:
+
+| Endpoint | Tham số |
+|---|---|
+| `GET /api/v1/inventory/` | `search`, `product__category`, `product__status`, `ordering`, `page`, `page_size` |
+| `GET /api/v1/inventory/movements/` | `search`, `inventory__product`, `movement_type`, `ordering`, `page`, `page_size` |
+
+Quy ước `POST /api/v1/inventory/movements/`: `quantity` của `inbound`/`outbound` là lượng thay đổi dương; `quantity` của `adjustment` là số tồn mục tiêu. Mọi thay đổi được ghi thành StockMovement bất biến và không cho phép tồn âm.
 
 ### Định dạng Response API
 
@@ -558,6 +581,8 @@ Xem [.env.example](.env.example) để biết toàn bộ cấu hình khả dụn
 | [`docs/sprint_2.md`](docs/sprint_2.md) | Customer Management (module tham chiếu chuẩn cho các sprint sau). |
 | [`docs/prd_product.md`](docs/prd_product.md) | Đặc tả nghiệp vụ Product/Category và hợp đồng tích hợp Inventory. |
 | [`docs/sprint_3.md`](docs/sprint_3.md) | Product Management và nền dữ liệu cho Inventory. |
+| [`docs/prd_inventory.md`](docs/prd_inventory.md) | Đặc tả nghiệp vụ, database và hợp đồng giao dịch Inventory. |
+| [`docs/sprint_4.md`](docs/sprint_4.md) | Inventory Management, sổ biến động và kiểm soát đồng thời. |
 
 ## License
 

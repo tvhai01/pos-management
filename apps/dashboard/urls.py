@@ -57,4 +57,20 @@ urlpatterns: list = [
         name="category-restore",
     ),
     path("trash/", views.trash, name="trash"),
+    path("inventory/", views.inventory_list, name="inventory-list"),
+    path(
+        "inventory/<uuid:product_id>/",
+        views.inventory_detail,
+        name="inventory-detail",
+    ),
+    path(
+        "inventory/<uuid:product_id>/movement/",
+        views.inventory_movement,
+        name="inventory-movement",
+    ),
+    path(
+        "inventory/<uuid:product_id>/threshold/",
+        views.inventory_threshold,
+        name="inventory-threshold",
+    ),
 ]

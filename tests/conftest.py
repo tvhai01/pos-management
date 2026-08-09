@@ -14,6 +14,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.accounts.constants import PermissionAction, PermissionResource
 from apps.accounts.models import Permission, Role, User, UserRole
 from apps.customers.models import Customer
+from apps.inventory.models import Inventory
+from apps.inventory.services import InventoryService
 from apps.product.models import Category, Product
 
 # =============================================================================
@@ -540,4 +542,61 @@ def authenticated_product_client(
 ) -> APIClient:
     """Return an API client authenticated with Product permissions."""
     api_client.force_authenticate(user=user_with_product_role)
+    return api_client
+
+
+# =============================================================================
+# Inventory Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def inventory(product: Product) -> Inventory:
+    """Create the zero-balance Inventory for the standard Product fixture."""
+    return InventoryService.initialize_inventory(product)
+
+
+@pytest.fixture
+def all_inventory_permissions() -> list[Permission]:
+    """Create view/create/update Inventory permissions."""
+    definitions = (
+        PermissionAction.VIEW,
+        PermissionAction.CREATE,
+        PermissionAction.UPDATE,
+    )
+    return [
+        Permission.objects.create(
+            name=f"{action.value.title()} Inventory",
+            action=action,
+            resource=PermissionResource.INVENTORY,
+        )
+        for action in definitions
+    ]
+
+
+@pytest.fixture
+def inventory_manager_role(all_inventory_permissions: list[Permission]) -> Role:
+    """Create a role with complete Inventory access."""
+    role = Role.objects.create(name="Inventory Manager")
+    role.permissions.set(all_inventory_permissions)
+    return role
+
+
+@pytest.fixture
+def user_with_inventory_role(
+    create_user: User,
+    inventory_manager_role: Role,
+) -> User:
+    """Assign complete Inventory access to the standard user."""
+    UserRole.objects.create(user=create_user, role=inventory_manager_role)
+    return create_user
+
+
+@pytest.fixture
+def authenticated_inventory_client(
+    api_client: APIClient,
+    user_with_inventory_role: User,
+) -> APIClient:
+    """Return an API client authenticated with Inventory permissions."""
+    api_client.force_authenticate(user=user_with_inventory_role)
     return api_client

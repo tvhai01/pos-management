@@ -107,6 +107,13 @@ class ProductAdmin(admin.ModelAdmin):
             obj.created_by = request.user
         obj.updated_by = request.user
         super().save_model(request, obj, form, change)
+        if not change:
+            from apps.inventory.services import InventoryService
+
+            InventoryService.initialize_inventory(
+                obj,
+                created_by=cast(User, request.user),
+            )
 
     def delete_model(self, request: HttpRequest, obj: Product) -> None:
         """Convert the Django Admin delete action into a soft delete."""

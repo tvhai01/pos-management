@@ -9,6 +9,7 @@ from django import forms
 from apps.customers.constants import CustomerGender, CustomerStatus
 from apps.customers.selectors import CustomerSelector
 from apps.customers.validators import is_valid_phone_number
+from apps.inventory.constants import MSG_INVALID_QUANTITY, StockMovementType
 from apps.product.constants import MSG_INVALID_PRODUCT_PRICES
 from apps.product.models import Category, Product
 from apps.product.selectors import CategorySelector, ProductSelector
@@ -191,3 +192,53 @@ class CategoryForm(forms.ModelForm):
         if CategorySelector.name_exists(name, exclude_id=exclude_id):
             raise forms.ValidationError("Tên danh mục này đã tồn tại.")
         return name
+
+
+class StockMovementForm(forms.Form):
+    """Validate a stock mutation submitted from the Dashboard."""
+
+    movement_type = forms.ChoiceField(
+        label="Loại giao dịch",
+        choices=StockMovementType.choices,
+    )
+    quantity = forms.DecimalField(
+        label="Số lượng",
+        max_digits=14,
+        decimal_places=3,
+        min_value=Decimal("0"),
+        help_text="Điều chỉnh: nhập số tồn mục tiêu. Nhập/xuất: nhập lượng thay đổi.",
+    )
+    reference_code = forms.CharField(
+        label="Mã tham chiếu",
+        max_length=100,
+        required=False,
+    )
+    note = forms.CharField(
+        label="Ghi chú",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+    )
+
+    def clean(self) -> dict[str, Any]:
+        """Require positive inbound/outbound quantities."""
+        cleaned_data = super().clean() or {}
+        movement_type = cleaned_data.get("movement_type")
+        quantity = cleaned_data.get("quantity")
+        if (
+            quantity is not None
+            and movement_type != StockMovementType.ADJUSTMENT
+            and quantity <= 0
+        ):
+            self.add_error("quantity", MSG_INVALID_QUANTITY)
+        return cleaned_data
+
+
+class LowStockThresholdForm(forms.Form):
+    """Validate a non-negative Product warning threshold."""
+
+    low_stock_threshold = forms.DecimalField(
+        label="Ngưỡng tồn thấp",
+        max_digits=14,
+        decimal_places=3,
+        min_value=Decimal("0"),
+    )
