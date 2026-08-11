@@ -1,361 +1,270 @@
-from django.contrib import messages
-from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
-from django.views.decorators.http import require_POST
-from django.db.models import  Count, Q, ProtectedError
-from django.db.models.functions import Lower
-from django.core.paginator import Paginator
-from django.db import IntegrityError  # Import IntegrityError từ django.db
+"""Thin REST API views for Product and Category management."""
+
+from typing import Any, cast
+
+from rest_framework import status
+from rest_framework.generics import GenericAPIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+
+from apps.accounts.models import User
+from apps.accounts.permissions import HasPermission
+from apps.product.constants import (
+    CATEGORY_ORDERING_FIELDS,
+    CATEGORY_SEARCH_FIELDS,
+    MSG_CATEGORY_CREATED,
+    MSG_CATEGORY_DELETED,
+    MSG_CATEGORY_NOT_FOUND,
+    MSG_CATEGORY_UPDATED,
+    MSG_PRODUCT_CREATED,
+    MSG_PRODUCT_DELETED,
+    MSG_PRODUCT_NOT_FOUND,
+    MSG_PRODUCT_UPDATED,
+    PRODUCT_ORDERING_FIELDS,
+    PRODUCT_SEARCH_FIELDS,
+)
+from apps.product.permissions import (
+    CATEGORY_CREATE_PERMISSION,
+    CATEGORY_DELETE_PERMISSION,
+    CATEGORY_UPDATE_PERMISSION,
+    CATEGORY_VIEW_PERMISSION,
+    PRODUCT_CREATE_PERMISSION,
+    PRODUCT_DELETE_PERMISSION,
+    PRODUCT_UPDATE_PERMISSION,
+    PRODUCT_VIEW_PERMISSION,
+)
+from apps.product.selectors import CategorySelector, ProductSelector
+from apps.product.serializers import (
+    CategoryDetailSerializer,
+    CreateCategorySerializer,
+    CreateProductSerializer,
+    ProductDetailSerializer,
+    ProductListSerializer,
+    UpdateCategorySerializer,
+    UpdateProductSerializer,
+)
+from apps.product.services import CategoryService, ProductService
+from shared.pagination import paginated_success_response
+from shared.response import error_response, success_response
 
 
-from apps.dashboard.forms import CategoryForm, ProductUIForm
-from apps.product.models import Category, Product
+def _authenticated_user(request: Request) -> User:
+    """Narrow request.user after IsAuthenticated permission checking."""
+    return cast(User, request.user)
 
 
-def trash_view(request):
-    """Trang thùng rác"""
-    deleted_products = Product.objects.filter(deleted_at__isnull=False)
+class ProductListCreateView(GenericAPIView):
+    """List/search/filter products or create a product."""
 
-    # Nếu Category chưa có deleted_at, truyền danh sách rỗng để không bị lỗi FieldError
-    deleted_categories = Category.objects.filter(deleted_at__isnull=False)
+    permission_classes = (IsAuthenticated, HasPermission)
+    serializer_class = ProductListSerializer
+    filterset_fields: tuple[str, ...] = ("category", "status", "unit")
+    search_fields: tuple[str, ...] = PRODUCT_SEARCH_FIELDS
+    ordering_fields: tuple[str, ...] = PRODUCT_ORDERING_FIELDS
+    ordering: tuple[str, ...] = ("-created_at",)
 
-    return render(
-        request,
-        "dashboard/products/trash/trash.html",
-        {
-            "products": deleted_products,
-            "categories": deleted_categories,
+    def get_queryset(self) -> Any:
+        """Return the live Product base queryset."""
+        return ProductSelector.get_all_products()
+
+    def get(self, request: Request) -> Any:
+        """Return a paginated, filterable Product list."""
+        return paginated_success_response(
+            view=self,
+            queryset=self.get_queryset(),
+            serializer_class=ProductListSerializer,
+        )
+
+    def post(self, request: Request) -> Any:
+        """Validate and create a Product."""
+        serializer = CreateProductSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product = ProductService.create_product(
+            **serializer.validated_data,
+            created_by=_authenticated_user(request),
+        )
+        return success_response(
+            data=ProductDetailSerializer(product).data,
+            message=MSG_PRODUCT_CREATED,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    def check_permissions(self, request: Request) -> None:
+        """Select Product permission based on HTTP method."""
+        self.required_permission = (
+            PRODUCT_CREATE_PERMISSION
+            if request.method == "POST"
+            else PRODUCT_VIEW_PERMISSION
+        )
+        super().check_permissions(request)
+
+
+class ProductDetailView(GenericAPIView):
+    """Retrieve, update, or soft-delete a Product."""
+
+    permission_classes = (IsAuthenticated, HasPermission)
+    serializer_class = ProductDetailSerializer
+
+    def get(self, request: Request, product_id: str) -> Any:
+        """Return Product details or a standardized 404."""
+        product = ProductSelector.get_product_by_id(product_id)
+        if product is None:
+            return error_response(
+                message=MSG_PRODUCT_NOT_FOUND,
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        return success_response(data=ProductDetailSerializer(product).data)
+
+    def put(self, request: Request, product_id: str) -> Any:
+        """Update mutable Product fields."""
+        return self._update(request, product_id)
+
+    def patch(self, request: Request, product_id: str) -> Any:
+        """Partially update mutable Product fields."""
+        return self._update(request, product_id)
+
+    def _update(self, request: Request, product_id: str) -> Any:
+        """Share PUT/PATCH validation and service orchestration."""
+        serializer = UpdateProductSerializer(
+            data=request.data,
+            context={"product_id": product_id},
+        )
+        serializer.is_valid(raise_exception=True)
+        product = ProductService.update_product(
+            product_id=product_id,
+            updated_by=_authenticated_user(request),
+            **serializer.validated_data,
+        )
+        return success_response(
+            data=ProductDetailSerializer(product).data,
+            message=MSG_PRODUCT_UPDATED,
+        )
+
+    def delete(self, request: Request, product_id: str) -> Any:
+        """Soft-delete a Product."""
+        ProductService.delete_product(
+            product_id=product_id,
+            deleted_by=_authenticated_user(request),
+        )
+        return success_response(message=MSG_PRODUCT_DELETED)
+
+    def check_permissions(self, request: Request) -> None:
+        """Select Product permission based on HTTP method."""
+        permission_map = {
+            "GET": PRODUCT_VIEW_PERMISSION,
+            "PUT": PRODUCT_UPDATE_PERMISSION,
+            "PATCH": PRODUCT_UPDATE_PERMISSION,
+            "DELETE": PRODUCT_DELETE_PERMISSION,
         }
-    )
-
-# Alias chống lỗi nếu urls.py hoặc template cũ vẫn gọi product_trash_view
-"""product_trash_view = trash_view"""
-
-
-# ==============================================================================
-# PRODUCT VIEWS
-# ==============================================================================
+        self.required_permission = permission_map.get(
+            request.method or "", PRODUCT_VIEW_PERMISSION
+        )
+        super().check_permissions(request)
 
 
-def product_list_view(request):
-    """Danh sách sản phẩm (Phân trang chuẩn 5/trang mặc định)"""
-    products = Product.objects.filter(deleted_at__isnull=True)
-    categories = Category.objects.filter(deleted_at__isnull=True)
+class CategoryListCreateView(GenericAPIView):
+    """List/search categories or create a category."""
 
-    search = request.GET.get('search', '').strip()
-    selected_category = request.GET.get('category', '').strip()
-    status = request.GET.get('status', '').strip()
-    sort = request.GET.get('sort', '').strip()
+    permission_classes = (IsAuthenticated, HasPermission)
+    serializer_class = CategoryDetailSerializer
+    search_fields: tuple[str, ...] = CATEGORY_SEARCH_FIELDS
+    ordering_fields: tuple[str, ...] = CATEGORY_ORDERING_FIELDS
+    ordering: tuple[str, ...] = ("name",)
 
-    # ĐỔI MẶC ĐỊNH THÀNH '5' (khớp với option đầu tiên ở HTML)
-    per_page = request.GET.get('per_page', '5').strip()
+    def get_queryset(self) -> Any:
+        """Return the live Category base queryset."""
+        return CategorySelector.get_all_categories()
 
-    if search:
-        products = products.filter(Q(sku__icontains=search) | Q(name__icontains=search))
-    if selected_category:
-        products = products.filter(category_id=selected_category)
-    if status:
-        products = products.filter(status=status)
+    def get(self, request: Request) -> Any:
+        """Return a paginated, searchable Category list."""
+        return paginated_success_response(
+            view=self,
+            queryset=self.get_queryset(),
+            serializer_class=CategoryDetailSerializer,
+        )
 
-    # Sắp xếp
-    if sort == 'name_asc':
-        products = products.order_by(Lower('name').asc())
-    elif sort == 'name_desc':
-        products = products.order_by(Lower('name').desc())
-    else:
-        sort_mapping = {
-            'newest': '-created_at',
-            'oldest': 'created_at',
-            'price_asc': 'selling_price',
-            'price_desc': '-selling_price',
+    def post(self, request: Request) -> Any:
+        """Validate and create a Category."""
+        serializer = CreateCategorySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        category = CategoryService.create_category(
+            **serializer.validated_data,
+            created_by=_authenticated_user(request),
+        )
+        return success_response(
+            data=CategoryDetailSerializer(category).data,
+            message=MSG_CATEGORY_CREATED,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    def check_permissions(self, request: Request) -> None:
+        """Select Category permission based on HTTP method."""
+        self.required_permission = (
+            CATEGORY_CREATE_PERMISSION
+            if request.method == "POST"
+            else CATEGORY_VIEW_PERMISSION
+        )
+        super().check_permissions(request)
+
+
+class CategoryDetailView(GenericAPIView):
+    """Retrieve, update, or soft-delete a Category."""
+
+    permission_classes = (IsAuthenticated, HasPermission)
+    serializer_class = CategoryDetailSerializer
+
+    def get(self, request: Request, category_id: str) -> Any:
+        """Return Category details or a standardized 404."""
+        category = CategorySelector.get_category_by_id(category_id)
+        if category is None:
+            return error_response(
+                message=MSG_CATEGORY_NOT_FOUND,
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        return success_response(data=CategoryDetailSerializer(category).data)
+
+    def put(self, request: Request, category_id: str) -> Any:
+        """Update mutable Category fields."""
+        return self._update(request, category_id)
+
+    def patch(self, request: Request, category_id: str) -> Any:
+        """Partially update mutable Category fields."""
+        return self._update(request, category_id)
+
+    def _update(self, request: Request, category_id: str) -> Any:
+        """Share PUT/PATCH validation and service orchestration."""
+        serializer = UpdateCategorySerializer(
+            data=request.data,
+            context={"category_id": category_id},
+        )
+        serializer.is_valid(raise_exception=True)
+        category = CategoryService.update_category(
+            category_id=category_id,
+            updated_by=_authenticated_user(request),
+            **serializer.validated_data,
+        )
+        return success_response(
+            data=CategoryDetailSerializer(category).data,
+            message=MSG_CATEGORY_UPDATED,
+        )
+
+    def delete(self, request: Request, category_id: str) -> Any:
+        """Soft-delete an empty Category."""
+        CategoryService.delete_category(
+            category_id=category_id,
+            deleted_by=_authenticated_user(request),
+        )
+        return success_response(message=MSG_CATEGORY_DELETED)
+
+    def check_permissions(self, request: Request) -> None:
+        """Select Category permission based on HTTP method."""
+        permission_map = {
+            "GET": CATEGORY_VIEW_PERMISSION,
+            "PUT": CATEGORY_UPDATE_PERMISSION,
+            "PATCH": CATEGORY_UPDATE_PERMISSION,
+            "DELETE": CATEGORY_DELETE_PERMISSION,
         }
-        products = products.order_by(sort_mapping.get(sort, '-created_at'))
-
-    # XỬ LÝ SỐ LƯỢNG TRÊN 1 TRANG
-    total_count = products.count()
-    if per_page == 'all':
-        items_per_page = total_count if total_count > 0 else 5
-    else:
-        try:
-            items_per_page = int(per_page)
-        except ValueError:
-            items_per_page = 5
-
-    paginator = Paginator(products, items_per_page)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    return render(
-        request,
-        "dashboard/products/products/list.html",
-        {
-            "products": page_obj,
-            "categories": categories,
-            "status_choices": Product.Status.choices,
-            "search": search,
-            "selected_category": selected_category,
-            "status": status,
-            "sort": sort,
-            "per_page": per_page,
-        }
-    )
-
-def product_create_view(request):
-    """Thêm sản phẩm mới"""
-    if request.method == "POST":
-        form = ProductUIForm(request.POST, request.FILES) # Không truyền instance
-        if form.is_valid():
-            product = form.save(commit=False)
-            if request.user.is_authenticated:
-                product.created_by = request.user
-            product.save()
-            messages.success(request, "Thêm sản phẩm mới thành công.")
-            return redirect("product-list")
-        else:
-            messages.error(request, "Không thể lưu! Vui lòng kiểm tra lại thông tin các ô bên dưới.")
-    else:
-        form = ProductUIForm() # Không truyền instance
-
-    return render(
-        request,
-        "dashboard/products/create.html",
-        {"form": form, "title": "Thêm sản phẩm mới"}
-    )
-
-def product_update_view(request, product_id):
-    product = get_object_or_404(Product, pk=product_id, deleted_at__isnull=True)
-    form = ProductUIForm(request.POST or None, request.FILES or None, instance=product)
-    if request.method == "POST":
-        if form.is_valid():
-            updated_product = form.save(commit=False)
-            if request.user.is_authenticated:
-                updated_product.updated_by = request.user
-            updated_product.save()
-            messages.success(request, "Cập nhật sản phẩm thành công.")
-            return redirect("product-list")
-        else:
-            messages.error(request, "Không thể cập nhật! Giá bán không được nhỏ hơn hoặc bằng giá nhập.")
-
-    return render(request, "dashboard/products/products/create.html", {"form": form, "title": "Sửa sản phẩm"})
-@require_POST
-def product_soft_delete_view(request, product_id):
-    """Xóa mềm sản phẩm (Chuyển vào thùng rác)"""
-    product = get_object_or_404(Product, pk=product_id, deleted_at__isnull=True)
-    product.deleted_at = timezone.now()
-    if request.user.is_authenticated:
-        product.updated_by = request.user
-    product.save(
-        update_fields=["deleted_at", "updated_at", "updated_by"] if request.user.is_authenticated else ["deleted_at",
-                                                                                                        "updated_at"])
-    messages.success(request, f"Đã chuyển sản phẩm '{product.name}' vào thùng rác.")
-    return redirect("product-list")
-
-
-@require_POST
-def product_restore_view(request, product_id):
-    """Khôi phục sản phẩm"""
-    product = get_object_or_404(Product, pk=product_id, deleted_at__isnull=False)
-    product.deleted_at = None
-    if request.user.is_authenticated:
-        product.updated_by = request.user
-    product.save(
-        update_fields=["deleted_at", "updated_at", "updated_by"] if request.user.is_authenticated else ["deleted_at",
-                                                                                                        "updated_at"])
-    messages.success(request, f"Đã khôi phục sản phẩm '{product.name}'.")
-    return redirect("trash")
-
-
-@require_POST
-def product_hard_delete_view(request, product_id):
-    """Xóa vĩnh viễn sản phẩm khỏi CSDL (PRODUCT_TXN_GUARD — chặn nếu có Kho/Order/Invoice)."""
-    product = get_object_or_404(Product, pk=product_id)
-    product_name = product.name
-
-    # PRODUCT_TXN_GUARD — chi tiết related_name: xem Product.has_transaction_history()
-    if product.has_transaction_history():
-        messages.error(
-            request,
-            f"KHÔNG THỂ XÓA HẲN! Sản phẩm '{product_name}' đã phát sinh lịch sử giao dịch "
-            f"(Kho hàng, Đơn hàng hoặc Hóa đơn).",
+        self.required_permission = permission_map.get(
+            request.method or "", CATEGORY_VIEW_PERMISSION
         )
-        return redirect("trash")
-    try:
-        product.delete()
-        messages.success(request, f"Đã xóa vĩnh viễn sản phẩm '{product_name}'.")
-    except (ProtectedError, IntegrityError):
-        messages.error(
-            request,
-            f"KHÔNG THỂ XÓA HẲN! Sản phẩm '{product_name}' đang có ràng buộc dữ liệu không thể phá vỡ trong CSDL."
-        )
-    except Exception as e:
-        messages.error(request, f"Không thể xóa sản phẩm do lỗi: {str(e)}")
-
-    return redirect("trash")
-# ==============================================================================
-# CATEGORY VIEWS
-# ==============================================================================
-def category_list_view(request):
-    """Danh sách danh mục (có đếm SP, Tìm kiếm, Lọc, Sắp xếp & Phân trang)"""
-    categories = Category.objects.filter(deleted_at__isnull=True).annotate(
-        active_product_count=Count('products', filter=Q(products__deleted_at__isnull=True))
-    )
-
-    # 1. Lấy tham số lọc từ URL
-    search = request.GET.get('search', '').strip()
-    has_products = request.GET.get('has_products', '').strip()
-    sort = request.GET.get('sort', '').strip()
-    per_page = request.GET.get('per_page', '5').strip()
-
-    # 2. Tìm kiếm theo Tên hoặc Mô tả
-    if search:
-        categories = categories.filter(
-            Q(name__icontains=search) | Q(description__icontains=search)
-        )
-
-    # 3. Lọc theo trạng thái có/không có sản phẩm
-    active_category_ids = Product.objects.filter(
-        deleted_at__isnull=True,
-        category__isnull=False
-    ).values_list('category_id', flat=True).distinct()
-
-    if has_products == 'yes':
-        categories = categories.filter(id__in=active_category_ids)
-    elif has_products == 'no':
-        categories = categories.exclude(id__in=active_category_ids)
-
-    # 4. Sắp xếp (Sort - Không phân biệt chữ hoa/thường với Lower)
-    if sort == 'most_products':
-        categories = categories.order_by('-active_product_count')
-    elif sort == 'name_asc':
-        categories = categories.order_by(Lower('name').asc())
-    elif sort == 'name_desc':
-        categories = categories.order_by(Lower('name').desc())
-    else:
-        sort_mapping = {
-            'newest': '-created_at',
-            'oldest': 'created_at',
-        }
-        order_by_field = sort_mapping.get(sort, 'name')
-        categories = categories.order_by(order_by_field)
-
-    # 5. XỬ LÝ PHÂN TRANG (PAGINATION)
-    total_count = categories.count()
-    if per_page == 'all':
-        items_per_page = total_count if total_count > 0 else 5
-    else:
-        try:
-            items_per_page = int(per_page)
-        except ValueError:
-            items_per_page = 5
-
-    paginator = Paginator(categories, items_per_page)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    return render(
-        request,
-        "dashboard/categories/list.html",
-        {
-            "categories": page_obj,  # Truyền page_obj ra giao diện
-            "search": search,
-            "has_products": has_products,
-            "sort": sort,
-            "per_page": per_page,
-        }
-    )
-def category_create_view(request):
-    """Tạo danh mục mới"""
-    form = CategoryForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        category = form.save(commit=False)
-        if request.user.is_authenticated:
-            category.created_by = request.user
-            category.updated_by = request.user
-        category.save()
-        messages.success(request, "Đã thêm danh mục mới.")
-        return redirect("category-list")
-    return render(request, "dashboard/categories/form.html", {"form": form, "title": "Thêm danh mục"})
-
-
-def category_update_view(request, category_id):
-    """Cập nhật danh mục"""
-    category = get_object_or_404(Category, pk=category_id)
-    form = CategoryForm(request.POST or None, instance=category)
-    if request.method == "POST" and form.is_valid():
-        updated_category = form.save(commit=False)
-        if request.user.is_authenticated:
-            updated_category.updated_by = request.user
-        updated_category.save()
-        messages.success(request, f"Đã cập nhật danh mục '{updated_category.name}'.")
-        return redirect("category-list")
-    return render(request, "dashboard/categories/form.html", {"form": form, "title": "Sửa danh mục"})
-
-
-@require_POST
-def category_soft_delete_view(request, category_id):
-    """Xóa mềm danh mục (Chuyển vào thùng rác)"""
-    category = get_object_or_404(Category, pk=category_id, deleted_at__isnull=True)
-
-    # 1. Kiểm tra sản phẩm đang hoạt động thuộc danh mục
-    has_active_products = Product.objects.filter(category=category, deleted_at__isnull=True).exists()
-
-    if has_active_products:
-        messages.error(
-            request,
-            f"Không thể xóa danh mục '{category.name}' vì vẫn còn sản phẩm thuộc danh mục này!"
-        )
-    else:
-        # 2. BẮT BUỘC gán thời gian xóa mềm
-        category.deleted_at = timezone.now()
-        if request.user.is_authenticated:
-            category.updated_by = request.user
-
-        category.save(
-            update_fields=["deleted_at", "updated_at", "updated_by"]
-            if request.user.is_authenticated
-            else ["deleted_at", "updated_at"]
-        )
-        messages.success(request, f"Đã chuyển danh mục '{category.name}' vào thùng rác.")
-
-    return redirect("category-list")
-@require_POST
-def category_restore_view(request, category_id):
-    """Khôi phục sản phẩm"""
-    category = get_object_or_404(Category, pk=category_id, deleted_at__isnull=False)
-    category.deleted_at = None
-    if request.user.is_authenticated:
-        category.updated_by = request.user
-    category.save(
-        update_fields=["deleted_at", "updated_at", "updated_by"] if request.user.is_authenticated else ["deleted_at",
-                                                                                                        "updated_at"])
-    messages.success(request, f"Đã khôi phục sản phẩm '{category.name}'.")
-    return redirect("trash")
-
-
-@require_POST
-def category_hard_delete_view(request, category_id):
-    """Xóa vĩnh viễn danh mục khỏi CSDL (Chặn khi vẫn còn sản phẩm)"""
-    category = get_object_or_404(Category, pk=category_id)
-    category_name = category.name
-
-    # 1. KIỂM TRA CHỦ ĐỘNG: Không cho xóa nếu vẫn còn sản phẩm liên kết (kể cả SP trong thùng rác)
-    if category.products.exists():
-        messages.error(
-            request,
-            f"KHÔNG THỂ XÓA HẲN! Danh mục '{category_name}' vẫn còn liên kết với sản phẩm trong hệ thống."
-        )
-        return redirect("trash")
-
-    # 2. BẢO VỆ CSDL
-    try:
-        category.delete()
-        messages.success(request, f"Đã xóa vĩnh viễn danh mục '{category_name}'.")
-    except (ProtectedError, IntegrityError):
-        messages.error(
-            request,
-            f"KHÔNG THỂ XÓA HẲN! Danh mục '{category_name}' đang có ràng buộc dữ liệu trong CSDL."
-        )
-    except Exception as e:
-        messages.error(request, f"Lỗi khi xóa danh mục: {str(e)}")
-
-    return redirect("trash")
+        super().check_permissions(request)

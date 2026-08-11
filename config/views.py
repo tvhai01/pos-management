@@ -39,6 +39,16 @@ FEATURE_MODULES: dict[str, dict[str, str]] = {
         "base_url": "/api/v1/customers/",
         "description": "Quản lý khách hàng: tạo, cập nhật, tìm kiếm, xoá mềm.",
     },
+    "products": {
+        "name": "Product Management",
+        "base_url": "/api/v1/products/",
+        "description": "Quản lý sản phẩm, danh mục, giá bán và vòng đời sản phẩm.",
+    },
+    "inventory": {
+        "name": "Inventory Management",
+        "base_url": "/api/v1/inventory/",
+        "description": "Quản lý tồn hiện tại và lịch sử nhập, xuất, điều chỉnh kho.",
+    },
     "admin": {
         "name": "Django Admin",
         "base_url": "/admin/",
@@ -53,8 +63,8 @@ class HomeView(APIView):
     GET /
     """
 
-    permission_classes = [AllowAny]
-    authentication_classes: list = []
+    permission_classes = (AllowAny,)
+    authentication_classes: tuple = ()
 
     def get(self, request: Request) -> Any:
         """Return the service directory: name, version, and feature modules.

@@ -47,7 +47,15 @@ class TestApiRootEndpoint:
         modules = response.json()["data"]["modules"]
 
         # Assert
-        for key in ("health", "auth", "rbac", "customers", "admin"):
+        for key in (
+            "health",
+            "auth",
+            "rbac",
+            "customers",
+            "products",
+            "inventory",
+            "admin",
+        ):
             assert key in modules
             assert "base_url" in modules[key]
 

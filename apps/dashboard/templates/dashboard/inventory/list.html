@@ -1,0 +1,75 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Kho hàng — POS Management System{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="toolbar" style="margin-bottom:1.25rem">
+    <div>
+      <h1 style="margin:0">Kho hàng</h1>
+      <p class="text-muted">Số tồn hiện tại của từng sản phẩm.</p>
+    </div>
+    <a class="btn btn-secondary" style="margin-left:auto" href="{% url 'dashboard:product-list' %}">Sản phẩm</a>
+  </div>
+
+  <form class="toolbar" method="get">
+    <input type="text" name="search" placeholder="Tìm theo SKU, tên sản phẩm..." value="{{ search }}">
+    <select name="category">
+      <option value="">Tất cả danh mục</option>
+      {% for category in categories %}
+        <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="product_status">
+      <option value="">Mọi trạng thái sản phẩm</option>
+      {% for value, label in product_status_choices %}
+        <option value="{{ value }}" {% if product_status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="stock_status">
+      <option value="">Mọi trạng thái tồn</option>
+      {% for value, label in stock_status_choices %}
+        <option value="{{ value }}" {% if stock_status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-secondary">Lọc</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr><th>SKU</th><th>Sản phẩm</th><th>Danh mục</th><th>Tồn hiện tại</th><th>Ngưỡng thấp</th><th>Trạng thái</th><th>Cập nhật</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for inventory in inventories %}
+        <tr>
+          <td><strong>{{ inventory.product.sku }}</strong></td>
+          <td>{{ inventory.product.name }}<br><small class="text-muted">Đơn vị: {{ inventory.product.get_unit_display }}</small></td>
+          <td>{{ inventory.product.category.name|default:"—" }}</td>
+          <td><strong>{{ inventory.quantity|floatformat:"-3" }}</strong> {{ inventory.product.get_unit_display }}</td>
+          <td>{{ inventory.low_stock_threshold|floatformat:"-3" }} {{ inventory.product.get_unit_display }}</td>
+          <td>
+            {% if inventory.stock_status == "out_of_stock" %}
+              <span class="badge" style="background:#fee2e2;color:#991b1b">Hết hàng</span>
+            {% elif inventory.stock_status == "low_stock" %}
+              <span class="badge" style="background:#fef3c7;color:#92400e">Sắp hết</span>
+            {% else %}
+              <span class="badge badge-active">Còn hàng</span>
+            {% endif %}
+          </td>
+          <td>{{ inventory.updated_by.email|default:"Hệ thống" }}<br><small>{{ inventory.updated_at|date:"d/m/Y H:i" }}</small></td>
+          <td><a href="{% url 'dashboard:inventory-detail' inventory.product.id %}">{% if can_create_movement %}Thao tác{% else %}Chi tiết{% endif %}</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="text-muted">Không có tồn kho phù hợp.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if inventories.paginator.num_pages > 1 %}
+    <div class="pagination">
+      {% if inventories.has_previous %}<a href="?page={{ inventories.previous_page_number }}&search={{ search }}&category={{ selected_category }}&product_status={{ product_status }}&stock_status={{ stock_status }}">« Trước</a>{% endif %}
+      <span>Trang {{ inventories.number }}/{{ inventories.paginator.num_pages }}</span>
+      {% if inventories.has_next %}<a href="?page={{ inventories.next_page_number }}&search={{ search }}&category={{ selected_category }}&product_status={{ product_status }}&stock_status={{ stock_status }}">Sau »</a>{% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

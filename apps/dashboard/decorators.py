@@ -11,12 +11,13 @@ regardless of transport (JSON API vs HTML dashboard).
 
 from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import Any, cast
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
+from apps.accounts.models import User
 from apps.accounts.selectors import PermissionSelector
 
 
@@ -44,7 +45,7 @@ def require_permission(action: str, resource: str) -> Callable:
             request: HttpRequest, *args: Any, **kwargs: Any
         ) -> HttpResponse:
             if not PermissionSelector.user_has_permission(
-                user=request.user, action=action, resource=resource
+                user=cast(User, request.user), action=action, resource=resource
             ):
                 return render(request, "dashboard/403.html", status=403)
             return view_func(request, *args, **kwargs)

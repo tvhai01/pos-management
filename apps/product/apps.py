@@ -1,7 +1,9 @@
 """
 Django app configuration for the Product app.
 """
+
 from django.apps import AppConfig
+
 
 class ProductConfig(AppConfig):
     default_auto_field: str = "django.db.models.BigAutoField"

@@ -168,9 +168,9 @@ trước khi thêm module mới, áp dụng cho cả dev lẫn AI agent.
 
 Giao diện HTML, đăng nhập bằng **session** (khác với JWT dùng cho các endpoint
 `/api/v1/...` bên dưới). Người dùng thường (không cần `is_staff`) đăng nhập và
-thao tác theo đúng quyền (RBAC) được gán cho tài khoản của mình — không có
-quyền `view:customer` thì mục "Khách hàng" sẽ không hiển thị link, cố tình vào
-thẳng URL sẽ nhận trang 403.
+thao tác theo đúng quyền (RBAC) được gán cho tài khoản của mình. Module không
+đủ quyền xem sẽ không hiển thị trên trang chủ; cố tình vào thẳng URL sẽ nhận
+trang 403.
 
 | Method | Endpoint | Mô tả | Auth | Permission |
 |---|---|---|---|---|
@@ -181,6 +181,19 @@ thẳng URL sẽ nhận trang 403.
 | `GET`/`POST` | `/customers/create/` | Form tạo khách hàng | Session | `create:customer` |
 | `GET`/`POST` | `/customers/{id}/edit/` | Form sửa khách hàng | Session | `update:customer` |
 | `GET`/`POST` | `/customers/{id}/delete/` | Xác nhận rồi xoá mềm khách hàng | Session | `delete:customer` |
+| `GET` | `/products/` | Danh sách/tìm kiếm/lọc sản phẩm (có phân trang) | Session | `view:product` |
+| `GET`/`POST` | `/products/create/` | Form tạo sản phẩm | Session | `create:product` |
+| `GET`/`POST` | `/products/{id}/update/` | Form sửa sản phẩm (SKU không được sửa) | Session | `update:product` |
+| `POST` | `/products/{id}/delete/` | Xoá mềm sản phẩm | Session | `delete:product` |
+| `GET` | `/categories/` | Danh sách/tìm kiếm danh mục (có phân trang) | Session | `view:category` |
+| `GET`/`POST` | `/categories/create/` | Form tạo danh mục | Session | `create:category` |
+| `GET`/`POST` | `/categories/{id}/update/` | Form sửa danh mục | Session | `update:category` |
+| `POST` | `/categories/{id}/delete/` | Xoá mềm danh mục nếu không còn sản phẩm tham chiếu | Session | `delete:category` |
+| `GET` | `/trash/` | Thùng rác và thao tác khôi phục Product/Category | Session | Quyền Product/Category tương ứng |
+| `GET` | `/inventory/` | Danh sách/tìm kiếm/lọc tồn kho (có phân trang) | Session | `view:inventory` |
+| `GET` | `/inventory/{product_id}/` | Chi tiết tồn và lịch sử biến động | Session | `view:inventory` |
+| `POST` | `/inventory/{product_id}/movement/` | Nhập/xuất/điều chỉnh tồn kho | Session | `create:inventory` |
+| `POST` | `/inventory/{product_id}/threshold/` | Cập nhật ngưỡng tồn thấp | Session | `update:inventory` |
 
 ### JSON API Root
 
@@ -234,6 +247,50 @@ Tham số query của `GET /api/v1/customers/`:
 | `status` | Lọc theo trạng thái chính xác: `active`, `inactive`, `blocked`. |
 | `ordering` | Sắp xếp theo `full_name`, `customer_code`, `status`, `created_at`, `updated_at`. Thêm `-` phía trước để sắp xếp giảm dần. |
 | `page`, `page_size` | Phân trang chuẩn (mặc định 20/trang, tối đa 100/trang). |
+
+### Quản lý Sản phẩm và Danh mục (Product Management)
+
+| Method | Endpoint | Mô tả | Auth | Permission |
+|---|---|---|---|---|
+| `POST` | `/api/v1/products/` | Tạo sản phẩm | Có | `create:product` |
+| `GET` | `/api/v1/products/` | Danh sách/tìm kiếm/lọc/sắp xếp sản phẩm (có phân trang) | Có | `view:product` |
+| `GET` | `/api/v1/products/{id}/` | Chi tiết sản phẩm | Có | `view:product` |
+| `PUT`/`PATCH` | `/api/v1/products/{id}/` | Cập nhật sản phẩm (SKU không được sửa) | Có | `update:product` |
+| `DELETE` | `/api/v1/products/{id}/` | Xoá mềm sản phẩm | Có | `delete:product` |
+| `POST` | `/api/v1/categories/` | Tạo danh mục | Có | `create:category` |
+| `GET` | `/api/v1/categories/` | Danh sách/tìm kiếm danh mục (có phân trang) | Có | `view:category` |
+| `GET` | `/api/v1/categories/{id}/` | Chi tiết danh mục | Có | `view:category` |
+| `PUT`/`PATCH` | `/api/v1/categories/{id}/` | Cập nhật danh mục | Có | `update:category` |
+| `DELETE` | `/api/v1/categories/{id}/` | Xoá mềm danh mục nếu không còn sản phẩm tham chiếu | Có | `delete:category` |
+
+Tham số query của `GET /api/v1/products/`:
+
+| Tham số | Mô tả |
+|---|---|
+| `search` | Tìm theo `sku`, `name` hoặc `description` (khớp một phần). |
+| `status` | Lọc theo trạng thái `active` hoặc `inactive`. |
+| `category` | Lọc theo UUID của danh mục. |
+| `ordering` | Sắp xếp theo trường được hỗ trợ; thêm `-` phía trước để giảm dần. |
+| `page`, `page_size` | Phân trang chuẩn của dự án. |
+
+### Quản lý Kho (Inventory Management)
+
+| Method | Endpoint | Mô tả | Auth | Permission |
+|---|---|---|---|---|
+| `GET` | `/api/v1/inventory/` | Danh sách tồn hiện tại theo Product | Có | `view:inventory` |
+| `GET` | `/api/v1/inventory/{product_id}/` | Chi tiết tồn của một Product | Có | `view:inventory` |
+| `PATCH` | `/api/v1/inventory/{product_id}/threshold/` | Cập nhật ngưỡng cảnh báo tồn thấp | Có | `update:inventory` |
+| `GET` | `/api/v1/inventory/movements/` | Lịch sử biến động (có phân trang) | Có | `view:inventory` |
+| `POST` | `/api/v1/inventory/movements/` | Nhập, xuất hoặc điều chỉnh số tồn | Có | `create:inventory` |
+
+Tham số query:
+
+| Endpoint | Tham số |
+|---|---|
+| `GET /api/v1/inventory/` | `search`, `product__category`, `product__status`, `ordering`, `page`, `page_size` |
+| `GET /api/v1/inventory/movements/` | `search`, `inventory__product`, `movement_type`, `ordering`, `page`, `page_size` |
+
+Quy ước `POST /api/v1/inventory/movements/`: `quantity` của `inbound`/`outbound` là lượng thay đổi dương; `quantity` của `adjustment` là số tồn mục tiêu. Mọi thay đổi được ghi thành StockMovement bất biến và không cho phép tồn âm.
 
 ### Định dạng Response API
 
@@ -522,6 +579,10 @@ Xem [.env.example](.env.example) để biết toàn bộ cấu hình khả dụn
 | [`docs/sprint_0.md`](docs/sprint_0.md) | Hạ tầng nền tảng (Docker, Django, response envelope). |
 | [`docs/sprint_1.md`](docs/sprint_1.md) | Authentication (JWT) & RBAC. |
 | [`docs/sprint_2.md`](docs/sprint_2.md) | Customer Management (module tham chiếu chuẩn cho các sprint sau). |
+| [`docs/prd_product.md`](docs/prd_product.md) | Đặc tả nghiệp vụ Product/Category và hợp đồng tích hợp Inventory. |
+| [`docs/sprint_3.md`](docs/sprint_3.md) | Product Management và nền dữ liệu cho Inventory. |
+| [`docs/prd_inventory.md`](docs/prd_inventory.md) | Đặc tả nghiệp vụ, database và hợp đồng giao dịch Inventory. |
+| [`docs/sprint_4.md`](docs/sprint_4.md) | Inventory Management, sổ biến động và kiểm soát đồng thời. |
 
 ## License
 
