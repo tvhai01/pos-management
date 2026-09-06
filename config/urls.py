@@ -21,6 +21,9 @@ urlpatterns: list = [
     path("api/v1/", HomeView.as_view(), name="api-root"),
     path("api/v1/", include("apps.accounts.urls")),
     path("api/v1/", include("apps.customers.urls")),
+    path("api/v1/", include("apps.invoices.urls")),
+    path("api/v1/", include("apps.orders.urls")),
+    path("api/v1/", include("apps.payments.urls")),
     path("api/v1/", include("apps.product.urls")),
     path("api/v1/", include("apps.inventory.urls")),
 ]

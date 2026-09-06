@@ -115,6 +115,18 @@ class ProductSelector:
         ).all()
 
     @staticmethod
+    def get_sellable_product_for_update(product_id: UUID | str) -> Product | None:
+        """Lock one active, non-deleted Product for order price snapshots."""
+        try:
+            return Product.objects.select_for_update().get(
+                id=product_id,
+                status="active",
+                is_deleted=False,
+            )
+        except (Product.DoesNotExist, ValidationError, ValueError, TypeError):
+            return None
+
+    @staticmethod
     def get_deleted_products() -> QuerySet[Product]:
         """Return deleted products for the audit/trash screen."""
         return Product.all_objects.filter(is_deleted=True).select_related(

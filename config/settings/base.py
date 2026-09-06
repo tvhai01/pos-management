@@ -61,6 +61,9 @@ LOCAL_APPS: list[str] = [
     "apps.accounts",
     "apps.customers",
     "apps.dashboard",
+    "apps.invoices",
+    "apps.orders",
+    "apps.payments",
     "apps.product",
     "apps.inventory",
 ]
@@ -276,6 +279,22 @@ CORS_ALLOWED_ORIGINS: list[str] = config(
 )
 
 CORS_ALLOW_CREDENTIALS: bool = True
+
+# =============================================================================
+# Payment provider
+# =============================================================================
+
+SEPAY_ENV: str = config("SEPAY_ENV", default="sandbox")
+SEPAY_MERCHANT_ID: str = config("SEPAY_MERCHANT_ID", default="")
+SEPAY_SECRET_KEY: str = config("SEPAY_SECRET_KEY", default="")
+SEPAY_CHECKOUT_URL: str = config(
+    "SEPAY_CHECKOUT_URL",
+    default="https://pay-sandbox.sepay.vn/v1/checkout/init",
+)
+SEPAY_API_URL: str = config(
+    "SEPAY_API_URL",
+    default="https://pgapi-sandbox.sepay.vn",
+)
 
 # =============================================================================
 # Application Version
