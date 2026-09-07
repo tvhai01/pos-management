@@ -194,6 +194,12 @@ trang 403.
 | `GET` | `/inventory/{product_id}/` | Chi tiết tồn và lịch sử biến động | Session | `view:inventory` |
 | `POST` | `/inventory/{product_id}/movement/` | Nhập/xuất/điều chỉnh tồn kho | Session | `create:inventory` |
 | `POST` | `/inventory/{product_id}/threshold/` | Cập nhật ngưỡng tồn thấp | Session | `update:inventory` |
+| `GET` | `/reports/` | Tổng quan báo cáo doanh thu, sản phẩm bán chạy, tồn kho, thanh toán, khách hàng (lọc theo khoảng thời gian) | Session | `view:report` |
+| `GET` | `/reports/revenue/export/` | Xuất CSV báo cáo doanh thu | Session | `export:report` |
+| `GET` | `/reports/products/top-selling/export/` | Xuất CSV báo cáo sản phẩm bán chạy | Session | `export:report` |
+| `GET` | `/reports/inventory/export/` | Xuất CSV báo cáo tồn kho | Session | `export:report` |
+| `GET` | `/reports/payments/breakdown/export/` | Xuất CSV báo cáo phương thức thanh toán | Session | `export:report` |
+| `GET` | `/reports/customers/export/` | Xuất CSV báo cáo khách hàng | Session | `export:report` |
 
 ### JSON API Root
 
@@ -291,6 +297,31 @@ Tham số query:
 | `GET /api/v1/inventory/movements/` | `search`, `inventory__product`, `movement_type`, `ordering`, `page`, `page_size` |
 
 Quy ước `POST /api/v1/inventory/movements/`: `quantity` của `inbound`/`outbound` là lượng thay đổi dương; `quantity` của `adjustment` là số tồn mục tiêu. Mọi thay đổi được ghi thành StockMovement bất biến và không cho phép tồn âm.
+
+### Báo cáo (Report)
+
+Không có entity riêng — chỉ đọc/tổng hợp dữ liệu từ Invoice, Order/OrderItem,
+Payment/PaymentTransaction, Inventory/StockMovement, Product, Customer. Doanh
+thu tính trên `Invoice.status = Paid` (không tính theo Order hay Payment —
+xem [`docs/prd_report.md`](docs/prd_report.md) mục 9).
+
+| Method | Endpoint | Mô tả | Auth | Permission |
+|---|---|---|---|---|
+| `GET` | `/api/v1/reports/revenue/` | Doanh thu, số hoá đơn, breakdown theo ngày/tuần/tháng | Có | `view:report` |
+| `GET` | `/api/v1/reports/revenue/export/` | Xuất CSV báo cáo doanh thu | Có | `export:report` |
+| `GET` | `/api/v1/reports/products/top-selling/` | Top sản phẩm bán chạy theo số lượng hoặc doanh thu | Có | `view:report` |
+| `GET` | `/api/v1/reports/products/top-selling/export/` | Xuất CSV | Có | `export:report` |
+| `GET` | `/api/v1/reports/inventory/` | Tổng quan tồn kho (hết hàng, tồn thấp, giá trị tồn) và biến động trong kỳ | Có | `view:report` |
+| `GET` | `/api/v1/reports/inventory/export/` | Xuất CSV | Có | `export:report` |
+| `GET` | `/api/v1/reports/payments/breakdown/` | Số giao dịch/tiền thu theo phương thức và nhà cung cấp | Có | `view:report` |
+| `GET` | `/api/v1/reports/payments/breakdown/export/` | Xuất CSV | Có | `export:report` |
+| `GET` | `/api/v1/reports/customers/` | Top khách hàng theo chi tiêu và số khách hàng mới trong kỳ | Có | `view:report` |
+| `GET` | `/api/v1/reports/customers/export/` | Xuất CSV | Có | `export:report` |
+
+Tham số query dùng chung cho mọi endpoint trên: `date_from`, `date_to` (mặc
+định 30 ngày gần nhất nếu bỏ trống; `date_from` phải ≤ `date_to`). Riêng
+`top-selling`/`customers` có thêm `top_n` (mặc định 10, tối đa 100) và
+`top-selling` có thêm `sort_by` (`revenue` hoặc `quantity`, mặc định `revenue`).
 
 ### Định dạng Response API
 
