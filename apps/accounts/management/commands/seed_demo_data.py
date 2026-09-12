@@ -4,7 +4,9 @@ Management command: seed_demo_data.
 Populates the database with a realistic set of demo data for local
 development and manual testing: the permission catalog, a handful of
 staff roles matching real POS positions, ~15 staff accounts distributed
-across those roles, and ~100 customer records.
+across those roles, ~100 customer records, ~10 product categories with
+~100 products spread across them, and an initial warehouse stock-in
+movement per product spread across ten different quantity levels.
 
 Idempotent by design — every write is a `get_or_create`/existence check
 keyed on a unique field, so re-running it (e.g. on every
@@ -14,6 +16,7 @@ production database even if invoked there by mistake.
 """
 
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from django.conf import settings
@@ -28,6 +31,11 @@ from apps.accounts.services import UserService
 from apps.customers.constants import CustomerGender, CustomerStatus
 from apps.customers.selectors import CustomerSelector
 from apps.customers.services import CustomerService
+from apps.inventory.constants import StockMovementType
+from apps.inventory.services import InventoryService
+from apps.product.constants import ProductStatus, ProductUnit
+from apps.product.selectors import CategorySelector, ProductSelector
+from apps.product.services import CategoryService, ProductService
 
 DEFAULT_STAFF_PASSWORD: str = (
     "12345678@"  # noqa: S105 — documented demo default, not a secret
@@ -37,6 +45,167 @@ CUSTOMER_COUNT: int = 100
 # Matches the dev account documented in README.md § Quick Start.
 DEV_SUPERUSER_EMAIL: str = "admin@pos.com"
 DEV_SUPERUSER_PASSWORD: str = "PosDev@2026!"  # noqa: S105 — documented dev default
+
+# 10 categories x 10 products = ~100 products, one representative unit of
+# measure per category so the demo catalogue exercises a good spread of
+# ProductUnit values.
+CATEGORY_PRODUCTS: dict[str, tuple[str, list[str]]] = {
+    "Đồ uống": (
+        ProductUnit.BOTTLE,
+        [
+            "Coca-Cola 330ml",
+            "Pepsi 330ml",
+            "Nước suối Aquafina 500ml",
+            "Trà xanh Không Độ 500ml",
+            "Nước cam Twister 1L",
+            "Bia Tiger lon 330ml",
+            "Bia Heineken lon 330ml",
+            "Sting dâu 330ml",
+            "Nước tăng lực Redbull 250ml",
+            "Trà atiso Tân Hiệp Phát 500ml",
+        ],
+    ),
+    "Bánh kẹo": (
+        ProductUnit.PACK,
+        [
+            "Bánh Oreo",
+            "Kẹo Alpenliebe",
+            "Snack Oishi",
+            "Bánh Chocopie",
+            "Kẹo Mentos",
+            "Bánh quy Cosy",
+            "Kẹo cao su Doublemint",
+            "Bánh AFC",
+            "Snack Lay's",
+            "Kẹo dẻo Haribo",
+        ],
+    ),
+    "Thực phẩm khô": (
+        ProductUnit.PACK,
+        [
+            "Mì Hảo Hảo",
+            "Mì Omachi",
+            "Gạo ST25 5kg",
+            "Miến Phú Hương",
+            "Cháo ăn liền Vifon",
+            "Phở ăn liền Vifon",
+            "Bún khô",
+            "Mì Kokomi",
+            "Cơm cháy",
+            "Miến dong",
+        ],
+    ),
+    "Gia vị": (
+        ProductUnit.BOTTLE,
+        [
+            "Nước mắm Nam Ngư",
+            "Nước tương Chinsu",
+            "Muối i-ốt",
+            "Đường trắng",
+            "Bột ngọt Ajinomoto",
+            "Tương ớt Chinsu",
+            "Dầu ăn Neptune",
+            "Hạt nêm Knorr",
+            "Tiêu xay",
+            "Sa tế",
+        ],
+    ),
+    "Sữa và chế phẩm": (
+        ProductUnit.BOX,
+        [
+            "Sữa tươi Vinamilk",
+            "Sữa đặc Ông Thọ",
+            "Sữa chua Vinamilk",
+            "Phô mai con bò cười",
+            "Sữa bột Dielac",
+            "Bơ lạt",
+            "Sữa hạt Nutifood",
+            "Whipping cream",
+            "Sữa chua uống Yakult",
+            "Kem Wall's",
+        ],
+    ),
+    "Đồ gia dụng": (
+        ProductUnit.BOTTLE,
+        [
+            "Nước rửa chén Sunlight",
+            "Bột giặt Omo",
+            "Nước lau sàn Gift",
+            "Túi rác",
+            "Khăn giấy Pulppy",
+            "Nước xả vải Comfort",
+            "Bàn chải đánh răng",
+            "Kem đánh răng P/S",
+            "Xà phòng Lifebuoy",
+            "Nước rửa tay",
+        ],
+    ),
+    "Văn phòng phẩm": (
+        ProductUnit.PIECE,
+        [
+            "Bút bi Thiên Long",
+            "Vở học sinh Campus",
+            "Bút chì 2B",
+            "Thước kẻ 30cm",
+            "Gôm tẩy",
+            "Sổ tay A5",
+            "Kẹp giấy",
+            "Băng keo trong",
+            "Bút highlight",
+            "Bìa hồ sơ",
+        ],
+    ),
+    "Mỹ phẩm": (
+        ProductUnit.PIECE,
+        [
+            "Sữa rửa mặt Simple",
+            "Kem chống nắng Anessa",
+            "Son Romand",
+            "Nước hoa hồng",
+            "Mặt nạ giấy",
+            "Kem dưỡng ẩm",
+            "Phấn phủ",
+            "Chì kẻ mày",
+            "Sữa dưỡng thể",
+            "Dầu gội Clear",
+        ],
+    ),
+    "Vệ sinh cá nhân": (
+        ProductUnit.PACK,
+        [
+            "Băng vệ sinh Diana",
+            "Tã Bobby",
+            "Khăn ướt Mamamy",
+            "Dao cạo râu Gillette",
+            "Bàn chải Colgate",
+            "Nước súc miệng Listerine",
+            "Khẩu trang y tế",
+            "Giấy vệ sinh Pulppy",
+            "Xịt khử mùi Nivea",
+            "Bông tẩy trang",
+        ],
+    ),
+    "Đồ chơi": (
+        ProductUnit.PIECE,
+        [
+            "Lego mini",
+            "Xe ô tô đồ chơi",
+            "Búp bê Barbie",
+            "Bóng bay",
+            "Bộ xếp hình",
+            "Đất nặn",
+            "Rubik",
+            "Súng nước đồ chơi",
+            "Diều giấy",
+            "Con quay",
+        ],
+    ),
+}
+
+# Ten warehouse quantity levels, cycled across every seeded product so the
+# initial stock is spread evenly from near-empty to well-stocked instead of
+# every product landing on the same balance.
+STOCK_LEVELS: tuple[int, ...] = (3, 8, 15, 25, 40, 60, 90, 120, 200, 350)
 
 # Only the action/resource combinations actually enforced somewhere in the
 # app (matches every `require_permission`/`required_permission` call site
@@ -167,25 +336,28 @@ class Command(BaseCommand):
         faker = Faker("vi_VN")
         Faker.seed(20260912)
 
-        self._seed_dev_superuser()
+        actor = self._seed_dev_superuser()
         self._seed_permissions()
         roles = self._seed_roles()
         self._seed_staff(roles, faker)
         self._seed_customers(faker)
+        self._seed_products(actor)
 
         self.stdout.write(self.style.SUCCESS("Demo data seeding complete."))
 
-    def _seed_dev_superuser(self) -> None:
+    def _seed_dev_superuser(self) -> User:
         """Ensure the README's documented dev superuser account exists."""
-        if User.objects.filter(email=DEV_SUPERUSER_EMAIL).exists():
+        existing = User.objects.filter(email=DEV_SUPERUSER_EMAIL).first()
+        if existing is not None:
             self.stdout.write("Superuser: already exists.")
-            return
-        User.objects.create_superuser(
+            return existing
+        user = User.objects.create_superuser(
             email=DEV_SUPERUSER_EMAIL,
             password=DEV_SUPERUSER_PASSWORD,
             full_name="Admin",
         )
         self.stdout.write(f"Superuser: created ({DEV_SUPERUSER_EMAIL}).")
+        return user
 
     @transaction.atomic
     def _seed_permissions(self) -> None:
@@ -271,3 +443,56 @@ class Command(BaseCommand):
             )
             created += 1
         self.stdout.write(f"Customers: {created} created ({CUSTOMER_COUNT} total).")
+
+    def _seed_products(self, actor: User) -> None:
+        """Ensure ~10 categories and ~100 products (with initial stock) exist."""
+        created_categories = 0
+        created_products = 0
+        index = 1
+        for category_name, (unit, product_names) in CATEGORY_PRODUCTS.items():
+            if CategorySelector.name_exists(category_name):
+                category = CategorySelector.get_all_categories().get(name=category_name)
+            else:
+                category = CategoryService.create_category(
+                    name=category_name,
+                    description=f"Danh mục {category_name}.",
+                    created_by=actor,
+                )
+                created_categories += 1
+
+            for product_name in product_names:
+                sku = f"SKU{index:04d}"
+                if not ProductSelector.sku_exists(sku):
+                    cost_price = Decimal(10_000 + (index * 733) % 90_000)
+                    selling_price = (cost_price * Decimal("1.3")).quantize(Decimal("1"))
+                    product = ProductService.create_product(
+                        sku=sku,
+                        name=product_name,
+                        cost_price=cost_price,
+                        selling_price=selling_price,
+                        description=f"{product_name} — hàng demo để test hệ thống.",
+                        category_id=category.id,
+                        unit=unit,
+                        status=ProductStatus.ACTIVE,
+                        created_by=actor,
+                    )
+                    InventoryService.record_movement(
+                        product_id=product.id,
+                        movement_type=StockMovementType.INBOUND,
+                        quantity=STOCK_LEVELS[(index - 1) % len(STOCK_LEVELS)],
+                        reference_code=f"SEED-{sku}",
+                        note="Seed demo data — nhập kho ban đầu.",
+                        created_by=actor,
+                    )
+                    created_products += 1
+                index += 1
+
+        self.stdout.write(
+            f"Categories: {created_categories} created "
+            f"({len(CATEGORY_PRODUCTS)} total)."
+        )
+        self.stdout.write(
+            f"Products: {created_products} created "
+            f"({index - 1} total, inventory spread across "
+            f"{len(STOCK_LEVELS)} stock levels)."
+        )

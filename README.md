@@ -58,6 +58,10 @@ Sau khi container `backend` lên, database dev sẽ luôn có sẵn:
 - **~15 tài khoản nhân viên** demo (`nhanvien01@pos.com` → `nhanvien15@pos.com`),
   phân bổ theo 4 vị trí trên.
 - **~100 khách hàng** demo (`CUS0001` → `CUS0100`).
+- **10 danh mục** sản phẩm với **~100 sản phẩm** (`SKU0001` → `SKU0100`,
+  10 sản phẩm/danh mục) và **tồn kho khởi tạo rải đều** — 10 mức số lượng
+  khác nhau (từ 3 đến 350) lặp lại qua các sản phẩm, đủ để test tìm
+  kiếm/lọc/sắp xếp và cảnh báo sắp hết hàng.
 
 | Loại tài khoản | Email | Mật khẩu | Ghi chú |
 |---|---|---|---|

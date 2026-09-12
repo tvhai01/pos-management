@@ -121,6 +121,15 @@ container) không tạo trùng dữ liệu. Seed:
 - 100 khách hàng (`CUS0001`…`CUS0100`) với tên/địa chỉ tiếng Việt qua
   `Faker("vi_VN")`, seed cố định (`Faker.seed(20260912)`) để dữ liệu sinh ra
   giống nhau giữa các lần chạy.
+- 10 danh mục (`CategoryService.create_category`) × 10 sản phẩm/danh mục
+  (`ProductService.create_product`, `SKU0001`…`SKU0100`) — tên sản phẩm thật
+  theo từng ngành hàng (đồ uống, bánh kẹo, gia vị, mỹ phẩm...), mỗi danh mục
+  gán 1 đơn vị tính (`ProductUnit`) đại diện. Mỗi sản phẩm được nhập kho ban
+  đầu qua `InventoryService.record_movement` (INBOUND) với số lượng lấy từ
+  10 mức cố định (`STOCK_LEVELS = (3, 8, 15, 25, 40, 60, 90, 120, 200, 350)`)
+  lặp vòng qua từng sản phẩm — tồn kho rải đều từ sắp hết đến dư dả, đủ để
+  test filter theo `stock_status` (`out_of_stock`/`low_stock`/`in_stock`)
+  và sắp xếp theo số lượng.
 
 ## Sự cố môi trường phát hiện (ngoài phạm vi sprint, đã xử lý tối thiểu)
 
