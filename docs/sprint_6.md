@@ -1,4 +1,4 @@
-# Sprint 5 — Staff Management (Add User + phân quyền)
+# Sprint 6 — Staff Management (Add User + phân quyền)
 
 **Trạng thái:** Hoàn thành
 **Ngày hoàn thành:** 2026-09-12
