@@ -1,0 +1,84 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Nhân viên — POS Management System{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Nhân viên</h1>
+
+  <form class="toolbar" method="get">
+    <input type="text" name="search" placeholder="Tìm theo email, tên, SĐT..." value="{{ search }}">
+    <select name="is_active">
+      <option value="">Tất cả trạng thái</option>
+      <option value="true" {% if is_active == "true" %}selected{% endif %}>Đang hoạt động</option>
+      <option value="false" {% if is_active == "false" %}selected{% endif %}>Đã vô hiệu hoá</option>
+    </select>
+    <button type="submit" class="btn btn-secondary">Lọc</button>
+    <a class="btn btn-secondary" href="{% url 'dashboard:role-list' %}" style="margin-left:auto">Quản lý vai trò</a>
+    {% if can_create %}
+      <a class="btn" href="{% url 'dashboard:staff-create' %}">+ Thêm nhân viên</a>
+    {% endif %}
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Họ tên</th>
+        <th>SĐT</th>
+        <th>Vai trò</th>
+        <th>Trạng thái</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for staff_user in page_obj %}
+        <tr>
+          <td>{{ staff_user.email }}</td>
+          <td>{{ staff_user.full_name }}</td>
+          <td>{{ staff_user.phone|default:"—" }}</td>
+          <td>{{ staff_user.role_names|join:", "|default:"—" }}</td>
+          <td>
+            {% if staff_user.is_active %}
+              <span class="badge badge-active">Đang hoạt động</span>
+            {% else %}
+              <span class="badge badge-inactive">Đã vô hiệu hoá</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if can_update %}
+              <a href="{% url 'dashboard:staff-edit' staff_user.id %}">Sửa</a>
+            {% endif %}
+            {% if can_delete and staff_user.is_active %}
+              &nbsp;·&nbsp;
+              <form method="post" action="{% url 'dashboard:staff-deactivate' staff_user.id %}" style="display:inline">
+                {% csrf_token %}
+                <button type="submit" style="background:none;border:none;padding:0;color:var(--danger);cursor:pointer;text-decoration:underline">Vô hiệu hoá</button>
+              </form>
+            {% endif %}
+            {% if can_update and not staff_user.is_active %}
+              &nbsp;·&nbsp;
+              <form method="post" action="{% url 'dashboard:staff-activate' staff_user.id %}" style="display:inline">
+                {% csrf_token %}
+                <button type="submit" style="background:none;border:none;padding:0;color:var(--success);cursor:pointer;text-decoration:underline">Kích hoạt lại</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-muted">Không có nhân viên nào phù hợp.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if page_obj.paginator.num_pages > 1 %}
+    <div class="pagination">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&search={{ search }}&is_active={{ is_active }}">« Trước</a>
+      {% endif %}
+      <span class="text-muted">Trang {{ page_obj.number }}/{{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&search={{ search }}&is_active={{ is_active }}">Sau »</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

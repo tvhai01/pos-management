@@ -313,6 +313,58 @@ def authenticated_staff_client(
 
 
 # =============================================================================
+# Staff / User Management Fixtures (Sprint 5)
+# =============================================================================
+
+
+@pytest.fixture
+def all_user_permissions() -> list[Permission]:
+    """Create view/create/update/delete permissions for the User resource."""
+    definitions = (
+        PermissionAction.VIEW,
+        PermissionAction.CREATE,
+        PermissionAction.UPDATE,
+        PermissionAction.DELETE,
+    )
+    return [
+        Permission.objects.create(
+            name=f"{action.value.title()} User",
+            action=action,
+            resource=PermissionResource.USER,
+        )
+        for action in definitions
+    ]
+
+
+@pytest.fixture
+def user_manager_role(all_user_permissions: list[Permission]) -> Role:
+    """Create a role with complete User (staff) management access."""
+    role = Role.objects.create(name="User Manager")
+    role.permissions.set(all_user_permissions)
+    return role
+
+
+@pytest.fixture
+def user_with_user_management_role(
+    create_user: User,
+    user_manager_role: Role,
+) -> User:
+    """Assign complete User management permissions to the standard test user."""
+    UserRole.objects.create(user=create_user, role=user_manager_role)
+    return create_user
+
+
+@pytest.fixture
+def authenticated_user_management_client(
+    api_client: APIClient,
+    user_with_user_management_role: User,
+) -> APIClient:
+    """Return an API client authenticated with User management permissions."""
+    api_client.force_authenticate(user=user_with_user_management_role)
+    return api_client
+
+
+# =============================================================================
 # Customer Fixtures (Sprint 2)
 # =============================================================================
 

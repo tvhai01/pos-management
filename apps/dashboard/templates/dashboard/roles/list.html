@@ -1,0 +1,51 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Vai trò — POS Management System{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Vai trò</h1>
+
+  <div class="toolbar">
+    <a class="btn btn-secondary" href="{% url 'dashboard:staff-list' %}">← Nhân viên</a>
+    {% if can_create %}
+      <a class="btn" href="{% url 'dashboard:role-create' %}" style="margin-left:auto">+ Tạo vai trò</a>
+    {% endif %}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Tên vai trò</th>
+        <th>Mô tả</th>
+        <th>Số quyền</th>
+        <th>Số nhân viên</th>
+        <th>Trạng thái</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for role in roles %}
+        <tr>
+          <td>{{ role.name }}</td>
+          <td>{{ role.description|default:"—" }}</td>
+          <td>{{ role.permissions.count }}</td>
+          <td>{{ role.users.count }}</td>
+          <td>
+            {% if role.is_active %}
+              <span class="badge badge-active">Đang hoạt động</span>
+            {% else %}
+              <span class="badge badge-inactive">Vô hiệu hoá</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if can_update %}
+              <a href="{% url 'dashboard:role-edit' role.id %}">Sửa</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-muted">Chưa có vai trò nào.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

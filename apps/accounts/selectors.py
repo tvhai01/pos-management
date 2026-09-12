@@ -8,7 +8,7 @@ Selectors are called from services and never directly from views.
 import logging
 from uuid import UUID
 
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
 
 from apps.accounts.models import Permission, Role, User
 
@@ -76,6 +76,47 @@ class UserSelector:
             ).get(id=user_id)
         except User.DoesNotExist:
             return None
+
+    @staticmethod
+    def search_users(search: str = "", is_active: str = "") -> QuerySet[User]:
+        """Search/filter users for the staff list.
+
+        Args:
+            search: Free-text match against email, full_name, phone.
+            is_active: "true"/"false" to filter by active status, or "" for all.
+
+        Returns:
+            QuerySet of matching User instances, prefetching their roles.
+        """
+        queryset = User.objects.prefetch_related("roles")
+
+        if search:
+            queryset = queryset.filter(
+                Q(email__icontains=search)
+                | Q(full_name__icontains=search)
+                | Q(phone__icontains=search)
+            )
+
+        if is_active in {"true", "false"}:
+            queryset = queryset.filter(is_active=(is_active == "true"))
+
+        return queryset.order_by("-created_at")
+
+    @staticmethod
+    def email_exists(email: str, exclude_id: UUID | str | None = None) -> bool:
+        """Check whether a user with the given email already exists.
+
+        Args:
+            email: The email address to check.
+            exclude_id: A user UUID to exclude (used when editing a user).
+
+        Returns:
+            True if another user with this email exists.
+        """
+        queryset = User.objects.filter(email__iexact=email)
+        if exclude_id is not None:
+            queryset = queryset.exclude(id=exclude_id)
+        return queryset.exists()
 
 
 class PermissionSelector:

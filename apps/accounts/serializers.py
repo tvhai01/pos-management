@@ -358,3 +358,167 @@ class UpdateRoleSerializer(serializers.Serializer):
                     "One or more permission IDs are invalid."
                 )
         return value
+
+
+# =============================================================================
+# Staff (User Management) Serializers
+# =============================================================================
+
+
+class UserListSerializer(serializers.ModelSerializer):
+    """Serializes User data for the staff list view (lightweight)."""
+
+    role_names = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields: tuple[str, ...] = (
+            "id",
+            "email",
+            "full_name",
+            "phone",
+            "is_active",
+            "role_names",
+            "date_joined",
+        )
+
+    def get_role_names(self, obj: User) -> list[str]:
+        """Return the user's active role names."""
+        return obj.role_names
+
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    """Serializes User data with full role details for the staff detail view."""
+
+    roles = RoleListSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = User
+        fields: tuple[str, ...] = (
+            "id",
+            "email",
+            "full_name",
+            "phone",
+            "is_active",
+            "roles",
+            "date_joined",
+            "created_at",
+            "updated_at",
+        )
+
+
+class CreateUserSerializer(serializers.Serializer):
+    """Validates input for creating a new staff user.
+
+    Fields:
+        email: Required unique email address.
+        full_name: Required display name.
+        password: Required initial password (validated against Django validators).
+        phone: Optional phone number.
+        role_ids: Optional list of Role UUIDs to assign.
+    """
+
+    email = serializers.EmailField(required=True)
+    full_name = serializers.CharField(max_length=150, required=True)
+    password = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={"input_type": "password"},
+    )
+    phone = serializers.CharField(
+        max_length=20, required=False, allow_blank=True, default=""
+    )
+    role_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        default=list,
+    )
+
+    def validate_email(self, value: str) -> str:
+        """Validate that the email is not already in use.
+
+        Args:
+            value: The email address.
+
+        Returns:
+            The validated email address.
+
+        Raises:
+            serializers.ValidationError: If a user with this email exists.
+        """
+        from apps.accounts.selectors import UserSelector
+
+        if UserSelector.email_exists(value):
+            raise serializers.ValidationError(
+                f"A user with the email '{value}' already exists."
+            )
+        return value
+
+    def validate_password(self, value: str) -> str:
+        """Validate the password against Django's password validators.
+
+        Args:
+            value: The password string.
+
+        Returns:
+            The validated password string.
+
+        Raises:
+            serializers.ValidationError: If the password fails validation.
+        """
+        try:
+            validate_password(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(e.messages) from e
+        return value
+
+    def validate_role_ids(self, value: list[UUID]) -> list[UUID]:
+        """Validate that all role IDs exist.
+
+        Args:
+            value: List of Role UUIDs.
+
+        Returns:
+            The validated list of UUIDs.
+
+        Raises:
+            serializers.ValidationError: If any role ID is invalid.
+        """
+        if value:
+            existing_count = Role.objects.filter(id__in=value).count()
+            if existing_count != len(value):
+                raise serializers.ValidationError("One or more role IDs are invalid.")
+        return value
+
+
+class UpdateUserSerializer(serializers.Serializer):
+    """Validates input for updating an existing staff user.
+
+    All fields are optional for partial updates. Email cannot be changed.
+    """
+
+    full_name = serializers.CharField(max_length=150, required=False)
+    phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    is_active = serializers.BooleanField(required=False)
+    role_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+    )
+
+    def validate_role_ids(self, value: list[UUID]) -> list[UUID]:
+        """Validate that all role IDs exist.
+
+        Args:
+            value: List of Role UUIDs.
+
+        Returns:
+            The validated list of UUIDs.
+
+        Raises:
+            serializers.ValidationError: If any role ID is invalid.
+        """
+        if value:
+            existing_count = Role.objects.filter(id__in=value).count()
+            if existing_count != len(value):
+                raise serializers.ValidationError("One or more role IDs are invalid.")
+        return value

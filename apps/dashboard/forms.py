@@ -5,7 +5,11 @@ from typing import Any, ClassVar
 from uuid import UUID
 
 from django import forms
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 
+from apps.accounts.models import Permission, Role
+from apps.accounts.selectors import UserSelector
 from apps.customers.constants import CustomerGender, CustomerStatus
 from apps.customers.selectors import CustomerSelector
 from apps.customers.validators import is_valid_phone_number
@@ -89,6 +93,93 @@ class CustomerForm(forms.Form):
             )
         if CustomerSelector.phone_exists(value, exclude_id=self.customer_id):
             raise forms.ValidationError(f"Số điện thoại '{value}' đã được sử dụng.")
+        return value
+
+
+class StaffForm(forms.Form):
+    """Validate staff User create/update input for the HTML dashboard."""
+
+    email = forms.EmailField(label="Email", max_length=255)
+    full_name = forms.CharField(label="Họ và tên", max_length=150)
+    phone = forms.CharField(label="Số điện thoại", max_length=20, required=False)
+    password = forms.CharField(
+        label="Mật khẩu",
+        required=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+        help_text="Bỏ trống khi sửa nếu không muốn đổi mật khẩu.",
+    )
+    is_active = forms.BooleanField(label="Đang hoạt động", required=False, initial=True)
+    roles = forms.ModelMultipleChoiceField(
+        label="Vai trò",
+        queryset=Role.objects.filter(is_active=True),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    def __init__(
+        self,
+        *args: Any,
+        user_id: UUID | str | None = None,
+        is_edit: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        """Store the edited user ID (for uniqueness checks) and edit mode."""
+        self.user_id = user_id
+        self.is_edit = is_edit
+        super().__init__(*args, **kwargs)
+
+    def clean_email(self) -> str:
+        """Validate email uniqueness while excluding the current row."""
+        value = self.cleaned_data["email"]
+        if UserSelector.email_exists(value, exclude_id=self.user_id):
+            raise forms.ValidationError(f"Email '{value}' đã được sử dụng.")
+        return value
+
+    def clean_password(self) -> str:
+        """Require a password on create; validate strength when provided."""
+        value = self.cleaned_data.get("password", "")
+        if not value:
+            if not self.is_edit:
+                raise forms.ValidationError("Mật khẩu là bắt buộc khi tạo mới.")
+            return value
+        try:
+            validate_password(value)
+        except DjangoValidationError as e:
+            raise forms.ValidationError(e.messages) from e
+        return value
+
+
+class RoleForm(forms.Form):
+    """Validate Role create/update input for the HTML dashboard."""
+
+    name = forms.CharField(label="Tên vai trò", max_length=50)
+    description = forms.CharField(
+        label="Mô tả",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+    )
+    permissions = forms.ModelMultipleChoiceField(
+        label="Quyền hạn",
+        queryset=Permission.objects.all(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    def __init__(
+        self, *args: Any, role_id: UUID | str | None = None, **kwargs: Any
+    ) -> None:
+        """Store the edited role ID for uniqueness checks."""
+        self.role_id = role_id
+        super().__init__(*args, **kwargs)
+
+    def clean_name(self) -> str:
+        """Validate role name uniqueness while excluding the current row."""
+        value = self.cleaned_data["name"]
+        queryset = Role.objects.filter(name=value)
+        if self.role_id is not None:
+            queryset = queryset.exclude(id=self.role_id)
+        if queryset.exists():
+            raise forms.ValidationError(f"Vai trò '{value}' đã tồn tại.")
         return value
 
 

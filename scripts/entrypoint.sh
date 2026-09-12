@@ -49,6 +49,15 @@ echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
 # -----------------------------------------------------------------------------
+# Seed Demo Data (development only — the command itself also refuses to
+# run unless DEBUG=True, this check just avoids the extra step in prod)
+# -----------------------------------------------------------------------------
+if [ "${DJANGO_SETTINGS_MODULE:-}" = "config.settings.development" ]; then
+    echo "Seeding demo data (development environment)..."
+    python manage.py seed_demo_data
+fi
+
+# -----------------------------------------------------------------------------
 # Start Server
 # -----------------------------------------------------------------------------
 echo "Starting server..."

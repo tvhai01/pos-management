@@ -45,22 +45,43 @@ API sẽ chạy tại: `http://localhost:8000`
 
 ### 3. Kiểm tra
 
-**Tài khoản Superuser (dev)** — dùng để đăng nhập `/login/` hoặc `/admin/` trên
-môi trường dev cục bộ:
+Mỗi lần `docker compose up --build` (hoặc chỉ khởi động lại container
+`backend`), entrypoint tự động chạy `python manage.py seed_demo_data` —
+lệnh này **idempotent** (chạy lại bao nhiêu lần cũng không tạo trùng dữ
+liệu) và **chỉ chạy khi `DEBUG=True`** (không bao giờ đụng vào production).
+Sau khi container `backend` lên, database dev sẽ luôn có sẵn:
 
-| Email | Mật khẩu | Ghi chú |
-|---|---|---|
-| `admin@pos.com` | `PosDev@2026!` | Superuser — bypass toàn bộ RBAC |
+- 1 tài khoản **Superuser** (dev) — dùng để đăng nhập `/login/` hoặc
+  `/admin/`, bypass toàn bộ RBAC.
+- Bộ permission đầy đủ (action × resource) + 4 role mẫu theo vị trí thực tế:
+  *Quản lý cửa hàng*, *Thu ngân*, *Nhân viên kho*, *Nhân viên bán hàng*.
+- **~15 tài khoản nhân viên** demo (`nhanvien01@pos.com` → `nhanvien15@pos.com`),
+  phân bổ theo 4 vị trí trên.
+- **~100 khách hàng** demo (`CUS0001` → `CUS0100`).
+- **10 danh mục** sản phẩm với **~100 sản phẩm** (`SKU0001` → `SKU0100`,
+  10 sản phẩm/danh mục) và **tồn kho khởi tạo rải đều** — 10 mức số lượng
+  khác nhau (từ 3 đến 350) lặp lại qua các sản phẩm, đủ để test tìm
+  kiếm/lọc/sắp xếp và cảnh báo sắp hết hàng.
 
-> ⚠️ **Chỉ dùng cho môi trường dev/local.** Không dùng lại mật khẩu này cho
-> production hay bất kỳ môi trường public nào. Trước khi deploy production,
-> đổi mật khẩu bằng:
+| Loại tài khoản | Email | Mật khẩu | Ghi chú |
+|---|---|---|---|
+| Superuser | `admin@pos.com` | `PosDev@2026!` | Bypass toàn bộ RBAC |
+| Nhân viên demo | `nhanvien01@pos.com` … `nhanvien15@pos.com` | `12345678@` | Phân theo vai trò/vị trí — dùng để test RBAC theo từng quyền hạn khác nhau |
+
+> ⚠️ **Chỉ dùng cho môi trường dev/local.** Không dùng lại các mật khẩu này
+> cho production hay bất kỳ môi trường public nào. Trước khi deploy
+> production, đổi mật khẩu superuser bằng:
 > ```bash
 > docker compose exec backend python manage.py changepassword admin@pos.com
 > ```
 > Muốn tạo thêm superuser cho riêng mình thay vì dùng chung tài khoản trên:
 > ```bash
 > docker compose exec backend python manage.py createsuperuser
+> ```
+> Muốn seed lại thủ công (ví dụ sau khi xoá data test) mà không restart
+> container:
+> ```bash
+> docker compose exec backend python manage.py seed_demo_data
 > ```
 
 Mở trình duyệt tại `http://localhost:8000/` — đây là **trang quản trị (dashboard UI)**:
@@ -181,6 +202,14 @@ trang 403.
 | `GET`/`POST` | `/customers/create/` | Form tạo khách hàng | Session | `create:customer` |
 | `GET`/`POST` | `/customers/{id}/edit/` | Form sửa khách hàng | Session | `update:customer` |
 | `GET`/`POST` | `/customers/{id}/delete/` | Xác nhận rồi xoá mềm khách hàng | Session | `delete:customer` |
+| `GET` | `/staff/` | Danh sách/tìm kiếm/lọc nhân viên (có phân trang) | Session | `view:user` |
+| `GET`/`POST` | `/staff/create/` | Form tạo nhân viên + gán vai trò (role) | Session | `create:user` |
+| `GET`/`POST` | `/staff/{id}/edit/` | Form sửa nhân viên (đổi thông tin, mật khẩu, vai trò) | Session | `update:user` |
+| `POST` | `/staff/{id}/deactivate/` | Vô hiệu hoá nhân viên (không xoá cứng) | Session | `delete:user` |
+| `POST` | `/staff/{id}/activate/` | Kích hoạt lại nhân viên đã vô hiệu hoá | Session | `update:user` |
+| `GET` | `/staff/roles/` | Danh sách vai trò (role) kèm số quyền/số nhân viên | Session | `view:role` |
+| `GET`/`POST` | `/staff/roles/create/` | Form tạo vai trò mới + chọn permission | Session | `create:role` |
+| `GET`/`POST` | `/staff/roles/{id}/edit/` | Form sửa vai trò (tên, mô tả, permission) | Session | `update:role` |
 | `GET` | `/products/` | Danh sách/tìm kiếm/lọc sản phẩm (có phân trang) | Session | `view:product` |
 | `GET`/`POST` | `/products/create/` | Form tạo sản phẩm | Session | `create:product` |
 | `GET`/`POST` | `/products/{id}/update/` | Form sửa sản phẩm (SKU không được sửa) | Session | `update:product` |
@@ -234,6 +263,16 @@ trang 403.
 | `PATCH` | `/api/v1/roles/{id}/` | Cập nhật vai trò | Có | `update:role` |
 | `DELETE` | `/api/v1/roles/{id}/` | Xoá vai trò | Có | `delete:role` |
 | `GET` | `/api/v1/permissions/` | Danh sách toàn bộ permission | Có | `view:role` |
+
+### Quản lý Nhân viên (User Management)
+
+| Method | Endpoint | Mô tả | Auth | Permission |
+|---|---|---|---|---|
+| `GET` | `/api/v1/users/` | Danh sách/tìm kiếm nhân viên (`?search=&is_active=&page=`) | Có | `view:user` |
+| `POST` | `/api/v1/users/` | Tạo tài khoản nhân viên mới + gán vai trò (role) | Có | `create:user` |
+| `GET` | `/api/v1/users/{id}/` | Chi tiết nhân viên (kèm role) | Có | `view:user` |
+| `PATCH` | `/api/v1/users/{id}/` | Cập nhật thông tin/vai trò nhân viên | Có | `update:user` |
+| `DELETE` | `/api/v1/users/{id}/` | Vô hiệu hoá nhân viên (`is_active=False`, không xoá cứng) | Có | `delete:user` |
 
 ### Quản lý Khách hàng (Customer Management)
 

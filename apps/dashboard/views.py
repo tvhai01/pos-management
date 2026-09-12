@@ -21,8 +21,10 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
-from apps.accounts.models import User
-from apps.accounts.selectors import PermissionSelector
+from apps.accounts.constants import PermissionAction, PermissionResource
+from apps.accounts.models import Permission, User
+from apps.accounts.selectors import PermissionSelector, RoleSelector, UserSelector
+from apps.accounts.services import RoleService, UserService
 from apps.customers.constants import CustomerStatus
 from apps.customers.exceptions import CustomerNotFoundError
 from apps.customers.selectors import CustomerSelector
@@ -35,6 +37,8 @@ from apps.dashboard.forms import (
     LowStockThresholdForm,
     ProductUIForm,
     ReportFilterForm,
+    RoleForm,
+    StaffForm,
     StockMovementForm,
 )
 from apps.inventory.constants import StockStatus
@@ -168,6 +172,14 @@ def index(request: HttpRequest) -> HttpResponse:
             "url_name": "dashboard:order-list",
             "available": PermissionSelector.user_has_permission(
                 _authenticated_user(request), "view", "order"
+            ),
+        },
+        {
+            "name": "Nhân viên",
+            "description": "Tạo tài khoản nhân viên và gán vai trò (role).",
+            "url_name": "dashboard:staff-list",
+            "available": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "view", "user"
             ),
         },
         {
@@ -321,6 +333,308 @@ def customer_delete(request: HttpRequest, customer_id: UUID) -> HttpResponse:
 
     return render(
         request, "dashboard/customers/confirm_delete.html", {"customer": customer}
+    )
+
+
+# =============================================================================
+# Staff (User Management)
+# =============================================================================
+
+
+@require_permission("view", "user")
+def staff_list(request: HttpRequest) -> HttpResponse:
+    """List/search staff users with pagination.
+
+    GET /staff/?search=&is_active=&page=
+    """
+    search = request.GET.get("search", "").strip()
+    is_active = request.GET.get("is_active", "").strip()
+
+    queryset = UserSelector.search_users(search=search, is_active=is_active)
+    paginator = Paginator(queryset, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "dashboard/staff/list.html",
+        {
+            "page_obj": page_obj,
+            "search": search,
+            "is_active": is_active,
+            "can_create": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "create", "user"
+            ),
+            "can_update": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "update", "user"
+            ),
+            "can_delete": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "delete", "user"
+            ),
+        },
+    )
+
+
+@require_permission("create", "user")
+def staff_create(request: HttpRequest) -> HttpResponse:
+    """Create a new staff user.
+
+    GET  /staff/create/
+    POST /staff/create/
+    """
+    form = StaffForm(request.POST or None, is_edit=False)
+
+    if request.method == "POST" and form.is_valid():
+        UserService.create_user(
+            email=form.cleaned_data["email"],
+            full_name=form.cleaned_data["full_name"],
+            password=form.cleaned_data["password"],
+            phone=form.cleaned_data["phone"],
+            role_ids=[role.id for role in form.cleaned_data["roles"]],
+            created_by=_authenticated_user(request),
+        )
+        messages.success(request, "Đã tạo nhân viên thành công.")
+        return redirect("dashboard:staff-list")
+
+    return render(
+        request,
+        "dashboard/staff/form.html",
+        {"form": form, "is_edit": False},
+    )
+
+
+@require_permission("update", "user")
+def staff_edit(request: HttpRequest, user_id: UUID) -> HttpResponse:
+    """Update an existing staff user.
+
+    GET  /staff/{id}/edit/
+    POST /staff/{id}/edit/
+    """
+    staff_user = UserSelector.get_user_by_id(user_id)
+    if staff_user is None:
+        messages.error(request, "Không tìm thấy nhân viên.")
+        return redirect("dashboard:staff-list")
+
+    if request.method == "POST":
+        form = StaffForm(request.POST, user_id=user_id, is_edit=True)
+        if form.is_valid():
+            UserService.update_user(
+                user_id=user_id,
+                full_name=form.cleaned_data["full_name"],
+                phone=form.cleaned_data["phone"],
+                is_active=form.cleaned_data["is_active"],
+                role_ids=[role.id for role in form.cleaned_data["roles"]],
+            )
+            if form.cleaned_data["password"]:
+                staff_user.set_password(form.cleaned_data["password"])
+                staff_user.save(update_fields=["password"])
+            messages.success(request, "Đã cập nhật nhân viên thành công.")
+            return redirect("dashboard:staff-list")
+    else:
+        form = StaffForm(
+            user_id=user_id,
+            is_edit=True,
+            initial={
+                "email": staff_user.email,
+                "full_name": staff_user.full_name,
+                "phone": staff_user.phone,
+                "is_active": staff_user.is_active,
+                "roles": staff_user.roles.values_list("id", flat=True),
+            },
+        )
+
+    return render(
+        request,
+        "dashboard/staff/form.html",
+        {"form": form, "is_edit": True, "staff_user": staff_user},
+    )
+
+
+@require_POST
+@require_permission("delete", "user")
+def staff_deactivate(request: HttpRequest, user_id: UUID) -> HttpResponse:
+    """Deactivate a staff user (reversible, not a hard delete).
+
+    POST /staff/{id}/deactivate/
+    """
+    UserService.deactivate_user(user_id=user_id)
+    messages.success(request, "Đã vô hiệu hoá nhân viên.")
+    return redirect("dashboard:staff-list")
+
+
+@require_POST
+@require_permission("update", "user")
+def staff_activate(request: HttpRequest, user_id: UUID) -> HttpResponse:
+    """Reactivate a previously deactivated staff user.
+
+    POST /staff/{id}/activate/
+    """
+    UserService.activate_user(user_id=user_id)
+    messages.success(request, "Đã kích hoạt lại nhân viên.")
+    return redirect("dashboard:staff-list")
+
+
+# =============================================================================
+# Roles
+# =============================================================================
+
+# Fixed column order for the permission matrix (View/Create/Update/Delete).
+# Any other action a resource happens to have (Export, Approve, ...) still
+# renders — as an extra checkbox per row — so saving a role never silently
+# drops a permission that isn't one of these four.
+_PERMISSION_MATRIX_COLUMNS: tuple[str, ...] = (
+    PermissionAction.VIEW,
+    PermissionAction.CREATE,
+    PermissionAction.UPDATE,
+    PermissionAction.DELETE,
+)
+
+
+def _build_permission_matrix(checked_ids: set[str]) -> list[dict[str, Any]]:
+    """Group all permissions by resource (module) for a checkbox matrix.
+
+    Args:
+        checked_ids: Permission UUIDs (as strings) that should render checked.
+
+    Returns:
+        One row per resource that has at least one permission: the resource
+        label, a fixed-order cell per column in `_PERMISSION_MATRIX_COLUMNS`
+        (`None` if that resource has no such permission), and any remaining
+        permissions for that resource under "extra".
+    """
+    permissions_by_resource: dict[str, dict[str, Permission]] = {}
+    for permission in RoleSelector.get_all_permissions():
+        permissions_by_resource.setdefault(permission.resource, {})[
+            permission.action
+        ] = permission
+
+    def _cell(permission: Permission | None) -> dict[str, Any] | None:
+        if permission is None:
+            return None
+        return {
+            "permission": permission,
+            "checked": str(permission.id) in checked_ids,
+        }
+
+    matrix: list[dict[str, Any]] = []
+    for resource_value, resource_label in PermissionResource.choices:
+        actions = permissions_by_resource.get(resource_value)
+        if not actions:
+            continue
+        matrix.append(
+            {
+                "resource_label": resource_label,
+                "cells": [
+                    _cell(actions.get(action)) for action in _PERMISSION_MATRIX_COLUMNS
+                ],
+                "extra": [
+                    _cell(permission)
+                    for action, permission in actions.items()
+                    if action not in _PERMISSION_MATRIX_COLUMNS
+                ],
+            }
+        )
+    return matrix
+
+
+@require_permission("view", "role")
+def role_list(request: HttpRequest) -> HttpResponse:
+    """List all roles with their permission/user counts.
+
+    GET /staff/roles/
+    """
+    roles = RoleSelector.get_all_roles()
+
+    return render(
+        request,
+        "dashboard/roles/list.html",
+        {
+            "roles": roles,
+            "can_create": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "create", "role"
+            ),
+            "can_update": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "update", "role"
+            ),
+        },
+    )
+
+
+@require_permission("create", "role")
+def role_create(request: HttpRequest) -> HttpResponse:
+    """Create a new role with optional permission assignment.
+
+    GET  /staff/roles/create/
+    POST /staff/roles/create/
+    """
+    form = RoleForm(request.POST or None)
+    checked_ids = set(request.POST.getlist("permissions")) if request.POST else set()
+
+    if request.method == "POST" and form.is_valid():
+        RoleService.create_role(
+            name=form.cleaned_data["name"],
+            description=form.cleaned_data["description"],
+            permission_ids=[p.id for p in form.cleaned_data["permissions"]],
+        )
+        messages.success(request, "Đã tạo vai trò thành công.")
+        return redirect("dashboard:role-list")
+
+    return render(
+        request,
+        "dashboard/roles/form.html",
+        {
+            "form": form,
+            "is_edit": False,
+            "permission_matrix": _build_permission_matrix(checked_ids),
+        },
+    )
+
+
+@require_permission("update", "role")
+def role_edit(request: HttpRequest, role_id: UUID) -> HttpResponse:
+    """Update an existing role's name, description, and permissions.
+
+    GET  /staff/roles/{id}/edit/
+    POST /staff/roles/{id}/edit/
+    """
+    role = RoleSelector.get_role_by_id(role_id)
+    if role is None:
+        messages.error(request, "Không tìm thấy vai trò.")
+        return redirect("dashboard:role-list")
+
+    if request.method == "POST":
+        form = RoleForm(request.POST, role_id=role_id)
+        checked_ids = set(request.POST.getlist("permissions"))
+        if form.is_valid():
+            RoleService.update_role(
+                role_id=role_id,
+                name=form.cleaned_data["name"],
+                description=form.cleaned_data["description"],
+                permission_ids=[p.id for p in form.cleaned_data["permissions"]],
+            )
+            messages.success(request, "Đã cập nhật vai trò thành công.")
+            return redirect("dashboard:role-list")
+    else:
+        checked_ids = {
+            str(pid) for pid in role.permissions.values_list("id", flat=True)
+        }
+        form = RoleForm(
+            role_id=role_id,
+            initial={
+                "name": role.name,
+                "description": role.description,
+                "permissions": role.permissions.values_list("id", flat=True),
+            },
+        )
+
+    return render(
+        request,
+        "dashboard/roles/form.html",
+        {
+            "form": form,
+            "is_edit": True,
+            "role": role,
+            "permission_matrix": _build_permission_matrix(checked_ids),
+        },
     )
 
 
