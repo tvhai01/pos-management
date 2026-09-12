@@ -364,6 +364,32 @@ class TestInventoryDashboard:
         client.force_login(create_user)
         assert client.get("/inventory/").status_code == status.HTTP_403_FORBIDDEN
 
+    def test_inventory_list_renders_selected_stock_and_recent_movement(
+        self,
+        client: Client,
+        user_with_inventory_role: User,
+        inventory: Inventory,
+    ) -> None:
+        """Test the master-detail list exposes balance and recent ledger rows."""
+        # Arrange
+        client.force_login(user_with_inventory_role)
+        _, movement = InventoryService.record_movement(
+            product_id=inventory.product_id,
+            movement_type=StockMovementType.INBOUND,
+            quantity="4",
+        )
+
+        # Act
+        response = client.get("/inventory/", {"selected": str(inventory.product_id)})
+
+        # Assert
+        html = response.content.decode()
+        assert response.status_code == status.HTTP_200_OK
+        assert response.context["selected_inventory"] == inventory
+        assert list(response.context["recent_movements"]) == [movement]
+        assert "Chi tiết tồn kho" in html
+        assert "Lịch sử biến động gần đây" in html
+
     def test_list_detail_movement_and_threshold_flow(
         self,
         client: Client,

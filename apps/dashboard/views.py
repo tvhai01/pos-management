@@ -669,6 +669,14 @@ def product_list(request: HttpRequest) -> HttpResponse:
     )
     paginator = Paginator(queryset, 20)
     page_obj = paginator.get_page(request.GET.get("page"))
+    page_products = list(page_obj.object_list)
+    page_obj.object_list = page_products
+    selected_id = request.GET.get("selected", "").strip()
+    selected_product = next(
+        (product for product in page_products if str(product.id) == selected_id),
+        page_products[0] if page_products else None,
+    )
+    user = _authenticated_user(request)
     return render(
         request,
         "dashboard/products/products/list.html",
@@ -680,14 +688,23 @@ def product_list(request: HttpRequest) -> HttpResponse:
             "selected_category": category_id,
             "status": status_value,
             "sort": sort,
+            "selected_product": selected_product,
+            "active_module": "product",
+            "can_view_product": True,
+            "can_view_inventory": PermissionSelector.user_has_permission(
+                user, "view", "inventory"
+            ),
+            "can_view_report": PermissionSelector.user_has_permission(
+                user, "view", "report"
+            ),
             "can_create": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "create", "product"
+                user, "create", "product"
             ),
             "can_update": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "update", "product"
+                user, "update", "product"
             ),
             "can_delete": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "delete", "product"
+                user, "delete", "product"
             ),
         },
     )
@@ -918,11 +935,29 @@ def inventory_list(request: HttpRequest) -> HttpResponse:
         stock_status=stock_status,
     )
     paginator = Paginator(queryset, 20)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    page_inventories = list(page_obj.object_list)
+    page_obj.object_list = page_inventories
+    selected_id = request.GET.get("selected", "").strip()
+    selected_inventory = next(
+        (
+            inventory
+            for inventory in page_inventories
+            if str(inventory.product_id) == selected_id
+        ),
+        page_inventories[0] if page_inventories else None,
+    )
+    recent_movements = (
+        StockMovementSelector.get_product_movements(selected_inventory.product_id)[:5]
+        if selected_inventory is not None
+        else []
+    )
+    user = _authenticated_user(request)
     return render(
         request,
         "dashboard/inventory/list.html",
         {
-            "inventories": paginator.get_page(request.GET.get("page")),
+            "inventories": page_obj,
             "categories": CategorySelector.get_all_categories(),
             "product_status_choices": ProductStatus.choices,
             "stock_status_choices": StockStatus.choices,
@@ -930,8 +965,18 @@ def inventory_list(request: HttpRequest) -> HttpResponse:
             "selected_category": category_id,
             "product_status": product_status,
             "stock_status": stock_status,
+            "selected_inventory": selected_inventory,
+            "recent_movements": recent_movements,
+            "active_module": "inventory",
+            "can_view_product": PermissionSelector.user_has_permission(
+                user, "view", "product"
+            ),
+            "can_view_inventory": True,
+            "can_view_report": PermissionSelector.user_has_permission(
+                user, "view", "report"
+            ),
             "can_create_movement": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "create", "inventory"
+                user, "create", "inventory"
             ),
         },
     )

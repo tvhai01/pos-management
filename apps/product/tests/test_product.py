@@ -138,7 +138,7 @@ class TestProductSelectors:
 
         # Assert
         assert list(results) == [product_category]
-        assert getattr(results[0], "active_product_count") == 1
+        assert results[0].active_product_count == 1
 
     def test_category_selector_missing_and_name_uniqueness(
         self, product_category: Category
@@ -436,6 +436,26 @@ class TestProductDashboard:
 
         # Assert
         assert response.status_code == 403
+
+    def test_product_list_renders_selected_product_inspector(
+        self,
+        client: Client,
+        user_with_product_role: User,
+        product: Product,
+    ) -> None:
+        """Test the master-detail list exposes the selected Product."""
+        # Arrange
+        client.force_login(user_with_product_role)
+
+        # Act
+        response = client.get("/products/", {"selected": str(product.id)})
+
+        # Assert
+        html = response.content.decode()
+        assert response.status_code == status.HTTP_200_OK
+        assert response.context["selected_product"] == product
+        assert "Thông tin sản phẩm" in html
+        assert product.sku in html
 
     def test_product_create_update_delete_restore_flow(
         self,
