@@ -17,6 +17,8 @@ from apps.accounts.views import (
     RefreshTokenView,
     RoleDetailView,
     RoleListCreateView,
+    UserDetailView,
+    UserListCreateView,
 )
 
 app_name: str = "accounts"
@@ -39,4 +41,7 @@ urlpatterns: list = [
     path("roles/<uuid:role_id>/", RoleDetailView.as_view(), name="role-detail"),
     # RBAC — Permissions
     path("permissions/", PermissionListView.as_view(), name="permission-list"),
+    # Staff (User Management)
+    path("users/", UserListCreateView.as_view(), name="user-list-create"),
+    path("users/<uuid:user_id>/", UserDetailView.as_view(), name="user-detail"),
 ]

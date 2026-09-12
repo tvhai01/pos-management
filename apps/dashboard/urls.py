@@ -22,6 +22,17 @@ urlpatterns: list = [
         views.customer_delete,
         name="customer-delete",
     ),
+    path("staff/", views.staff_list, name="staff-list"),
+    path("staff/create/", views.staff_create, name="staff-create"),
+    path("staff/<uuid:user_id>/edit/", views.staff_edit, name="staff-edit"),
+    path(
+        "staff/<uuid:user_id>/deactivate/",
+        views.staff_deactivate,
+        name="staff-deactivate",
+    ),
+    path("staff/roles/", views.role_list, name="role-list"),
+    path("staff/roles/create/", views.role_create, name="role-create"),
+    path("staff/roles/<uuid:role_id>/edit/", views.role_edit, name="role-edit"),
     path("products/", views.product_list, name="product-list"),
     path("products/create/", views.product_create, name="product-create"),
     path(

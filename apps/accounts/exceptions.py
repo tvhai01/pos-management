@@ -7,6 +7,7 @@ Each exception maps to a specific HTTP status code and error message.
 
 from rest_framework import status
 
+from apps.accounts.constants import MSG_EMAIL_ALREADY_EXISTS, MSG_USER_NOT_FOUND
 from shared.exceptions import ApplicationError
 
 
@@ -64,3 +65,19 @@ class RoleHasUsersError(ApplicationError):
     status_code: int = status.HTTP_400_BAD_REQUEST
     default_detail: str = "Cannot delete role that has assigned users."
     default_code: str = "role_has_users"
+
+
+class UserNotFoundError(ApplicationError):
+    """Raised when a user cannot be found."""
+
+    status_code: int = status.HTTP_404_NOT_FOUND
+    default_detail: str = MSG_USER_NOT_FOUND
+    default_code: str = "user_not_found"
+
+
+class UserAlreadyExistsError(ApplicationError):
+    """Raised when creating a user with an email that is already in use."""
+
+    status_code: int = status.HTTP_400_BAD_REQUEST
+    default_detail: str = MSG_EMAIL_ALREADY_EXISTS
+    default_code: str = "user_already_exists"

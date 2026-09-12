@@ -13,7 +13,6 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-
 from rest_framework_simplejwt.exceptions import TokenError as JWTTokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -25,9 +24,11 @@ from apps.accounts.exceptions import (
     RoleHasUsersError,
     RoleNotFoundError,
     TokenError,
+    UserAlreadyExistsError,
+    UserNotFoundError,
 )
 from apps.accounts.models import Permission, Role, User, UserRole
-from apps.accounts.selectors import RoleSelector
+from apps.accounts.selectors import RoleSelector, UserSelector
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +199,120 @@ class UserService:
                 update_fields,
             )
 
+        return user
+
+    @staticmethod
+    @transaction.atomic
+    def create_user(
+        email: str,
+        full_name: str,
+        password: str,
+        phone: str = "",
+        role_ids: list[UUID] | None = None,
+        created_by: User | None = None,
+    ) -> User:
+        """Create a new staff user account and optionally assign roles.
+
+        Args:
+            email: The new user's email address (must be unique).
+            full_name: The new user's display name.
+            password: The new user's initial password.
+            phone: Optional phone number.
+            role_ids: Optional list of Role UUIDs to assign.
+            created_by: The user performing the creation (for role audit trail).
+
+        Returns:
+            The created User instance.
+
+        Raises:
+            UserAlreadyExistsError: If a user with this email already exists.
+            RoleNotFoundError: If any role_id doesn't exist.
+        """
+        if UserSelector.email_exists(email):
+            raise UserAlreadyExistsError()
+
+        user = User.objects.create_user(
+            email=email,
+            password=password,
+            full_name=full_name,
+            phone=phone,
+        )
+
+        for role_id in role_ids or []:
+            RoleService.assign_role_to_user(
+                user=user, role_id=role_id, assigned_by=created_by
+            )
+
+        logger.info("User created: %s", email)
+        return user
+
+    @staticmethod
+    @transaction.atomic
+    def update_user(user_id: UUID, **kwargs: Any) -> User:
+        """Update a staff user's fields and/or role assignments.
+
+        Args:
+            user_id: The UUID of the user to update.
+            **kwargs: Fields to update (full_name, phone, is_active, role_ids).
+
+        Returns:
+            The updated User instance.
+
+        Raises:
+            UserNotFoundError: If the user doesn't exist.
+            RoleNotFoundError: If any role_id doesn't exist.
+        """
+        user = UserSelector.get_user_by_id(user_id)
+        if user is None:
+            raise UserNotFoundError()
+
+        allowed_fields: set[str] = {"full_name", "phone", "is_active"}
+        update_fields: list[str] = []
+
+        for field, value in kwargs.items():
+            if field in allowed_fields and value is not None:
+                setattr(user, field, value)
+                update_fields.append(field)
+
+        if update_fields:
+            update_fields.append("updated_at")
+            user.save(update_fields=update_fields)
+
+        role_ids = kwargs.get("role_ids")
+        if role_ids is not None:
+            current_role_ids = set(user.roles.values_list("id", flat=True))
+            new_role_ids = {UUID(str(rid)) for rid in role_ids}
+
+            for role_id in new_role_ids - current_role_ids:
+                RoleService.assign_role_to_user(user=user, role_id=role_id)
+            for role_id in current_role_ids - new_role_ids:
+                RoleService.remove_role_from_user(user=user, role_id=role_id)
+
+        logger.info("User updated: %s (fields=%s)", user.email, update_fields)
+        return user
+
+    @staticmethod
+    @transaction.atomic
+    def deactivate_user(user_id: UUID) -> User:
+        """Deactivate a staff user account (soft, reversible).
+
+        Args:
+            user_id: The UUID of the user to deactivate.
+
+        Returns:
+            The deactivated User instance.
+
+        Raises:
+            UserNotFoundError: If the user doesn't exist.
+        """
+        user = UserSelector.get_user_by_id(user_id)
+        if user is None:
+            raise UserNotFoundError()
+
+        user.is_active = False
+        user.save(update_fields=["is_active", "updated_at"])
+
+        logger.info("User deactivated: %s", user.email)
         return user
 
 

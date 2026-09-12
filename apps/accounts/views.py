@@ -16,8 +16,8 @@ from typing import Any
 from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
-
 from rest_framework import status
+from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.views import APIView
@@ -31,12 +31,17 @@ from apps.accounts.constants import (
     MSG_ROLE_CREATED,
     MSG_ROLE_DELETED,
     MSG_ROLE_UPDATED,
+    MSG_USER_CREATED,
+    MSG_USER_DEACTIVATED,
+    MSG_USER_NOT_FOUND,
+    MSG_USER_UPDATED,
 )
 from apps.accounts.permissions import HasPermission
-from apps.accounts.selectors import RoleSelector
+from apps.accounts.selectors import RoleSelector, UserSelector
 from apps.accounts.serializers import (
     ChangePasswordSerializer,
     CreateRoleSerializer,
+    CreateUserSerializer,
     LoginSerializer,
     LogoutSerializer,
     PermissionSerializer,
@@ -45,9 +50,13 @@ from apps.accounts.serializers import (
     RoleListSerializer,
     UpdateProfileSerializer,
     UpdateRoleSerializer,
+    UpdateUserSerializer,
+    UserDetailSerializer,
+    UserListSerializer,
     UserProfileSerializer,
 )
 from apps.accounts.services import AuthService, RoleService, UserService
+from shared.pagination import paginated_success_response
 from shared.response import error_response, success_response
 
 logger = logging.getLogger(__name__)
@@ -432,6 +441,159 @@ class RoleDetailView(APIView):
         }
         self.required_permission = method_permission_map.get(
             request.method, {"action": "view", "resource": "role"}
+        )
+        super().check_permissions(request)
+
+
+class UserListCreateView(GenericAPIView):
+    """List/search staff users, or create a new staff user.
+
+    GET  /api/v1/users/  — requires view:user permission
+        Supports:
+        - ?search=<text>            (matches email, full_name, phone)
+        - ?is_active=true|false
+        - ?page=&page_size=
+    POST /api/v1/users/  — requires create:user permission
+    """
+
+    permission_classes = [IsAuthenticated, HasPermission]
+    serializer_class = UserListSerializer
+
+    def get(self, request: Request) -> Any:
+        """List and search staff users with pagination.
+
+        Returns:
+            Success response with paginated user list.
+        """
+        self.required_permission = {"action": "view", "resource": "user"}
+        search = request.query_params.get("search", "").strip()
+        is_active = request.query_params.get("is_active", "").strip()
+        queryset = UserSelector.search_users(search=search, is_active=is_active)
+        return paginated_success_response(
+            view=self,
+            queryset=queryset,
+            serializer_class=UserListSerializer,
+        )
+
+    def post(self, request: Request) -> Any:
+        """Create a new staff user.
+
+        Args:
+            request: Contains email, full_name, password, phone, role_ids.
+
+        Returns:
+            Success response with the created user data.
+        """
+        self.required_permission = {"action": "create", "resource": "user"}
+        serializer = CreateUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = UserService.create_user(
+            email=serializer.validated_data["email"],
+            full_name=serializer.validated_data["full_name"],
+            password=serializer.validated_data["password"],
+            phone=serializer.validated_data.get("phone", ""),
+            role_ids=serializer.validated_data.get("role_ids"),
+            created_by=request.user,
+        )
+
+        output_serializer = UserDetailSerializer(user)
+        return success_response(
+            data=output_serializer.data,
+            message=MSG_USER_CREATED,
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    def check_permissions(self, request: Request) -> None:
+        """Override to set required_permission based on HTTP method."""
+        if request.method == "POST":
+            self.required_permission = {"action": "create", "resource": "user"}
+        else:
+            self.required_permission = {"action": "view", "resource": "user"}
+        super().check_permissions(request)
+
+
+class UserDetailView(APIView):
+    """Retrieve, update, or deactivate a staff user.
+
+    GET    /api/v1/users/{id}/  — requires view:user permission
+    PATCH  /api/v1/users/{id}/  — requires update:user permission
+    DELETE /api/v1/users/{id}/  — requires delete:user permission
+        (deactivates the account; does not hard-delete it)
+    """
+
+    permission_classes = [IsAuthenticated, HasPermission]
+
+    def get(self, request: Request, user_id: str) -> Any:
+        """Retrieve a staff user by ID.
+
+        Args:
+            request: The incoming request.
+            user_id: The user's UUID.
+
+        Returns:
+            Success response with user details, or 404 if not found.
+        """
+        self.required_permission = {"action": "view", "resource": "user"}
+        user = UserSelector.get_user_with_roles(user_id)
+        if user is None:
+            return error_response(
+                message=MSG_USER_NOT_FOUND,
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = UserDetailSerializer(user)
+        return success_response(data=serializer.data)
+
+    def patch(self, request: Request, user_id: str) -> Any:
+        """Update a staff user.
+
+        Args:
+            request: Contains fields to update.
+            user_id: The user's UUID.
+
+        Returns:
+            Success response with updated user data.
+        """
+        self.required_permission = {"action": "update", "resource": "user"}
+        serializer = UpdateUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = UserService.update_user(
+            user_id=user_id,
+            **serializer.validated_data,
+        )
+
+        output_serializer = UserDetailSerializer(user)
+        return success_response(
+            data=output_serializer.data,
+            message=MSG_USER_UPDATED,
+        )
+
+    def delete(self, request: Request, user_id: str) -> Any:
+        """Deactivate a staff user (reversible, not a hard delete).
+
+        Args:
+            request: The incoming request.
+            user_id: The user's UUID.
+
+        Returns:
+            Success response confirming deactivation.
+        """
+        self.required_permission = {"action": "delete", "resource": "user"}
+        UserService.deactivate_user(user_id=user_id)
+
+        return success_response(message=MSG_USER_DEACTIVATED)
+
+    def check_permissions(self, request: Request) -> None:
+        """Override to set required_permission based on HTTP method."""
+        method_permission_map: dict[str, dict[str, str]] = {
+            "GET": {"action": "view", "resource": "user"},
+            "PATCH": {"action": "update", "resource": "user"},
+            "DELETE": {"action": "delete", "resource": "user"},
+        }
+        self.required_permission = method_permission_map.get(
+            request.method, {"action": "view", "resource": "user"}
         )
         super().check_permissions(request)
 

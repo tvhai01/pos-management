@@ -72,3 +72,13 @@ MSG_ROLE_UPDATED: str = "Role updated successfully."
 MSG_ROLE_DELETED: str = "Role deleted successfully."
 MSG_ROLE_NOT_FOUND: str = "Role not found."
 MSG_ROLE_HAS_USERS: str = "Cannot delete role that has assigned users."
+
+# =============================================================================
+# User (Staff) Management Constants
+# =============================================================================
+
+MSG_USER_CREATED: str = "User created successfully."
+MSG_USER_UPDATED: str = "User updated successfully."
+MSG_USER_DEACTIVATED: str = "User deactivated successfully."
+MSG_USER_NOT_FOUND: str = "User not found."
+MSG_EMAIL_ALREADY_EXISTS: str = "A user with this email already exists."

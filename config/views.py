@@ -34,6 +34,11 @@ FEATURE_MODULES: dict[str, dict[str, str]] = {
         "base_url": "/api/v1/roles/",
         "description": "Quản lý vai trò (Role) và phân quyền (Permission).",
     },
+    "users": {
+        "name": "User Management",
+        "base_url": "/api/v1/users/",
+        "description": "Tạo và quản lý tài khoản nhân viên, gán vai trò (role).",
+    },
     "customers": {
         "name": "Customer Management",
         "base_url": "/api/v1/customers/",
