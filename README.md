@@ -202,6 +202,7 @@ trang 403.
 | `GET`/`POST` | `/staff/create/` | Form tạo nhân viên + gán vai trò (role) | Session | `create:user` |
 | `GET`/`POST` | `/staff/{id}/edit/` | Form sửa nhân viên (đổi thông tin, mật khẩu, vai trò) | Session | `update:user` |
 | `POST` | `/staff/{id}/deactivate/` | Vô hiệu hoá nhân viên (không xoá cứng) | Session | `delete:user` |
+| `POST` | `/staff/{id}/activate/` | Kích hoạt lại nhân viên đã vô hiệu hoá | Session | `update:user` |
 | `GET` | `/staff/roles/` | Danh sách vai trò (role) kèm số quyền/số nhân viên | Session | `view:role` |
 | `GET`/`POST` | `/staff/roles/create/` | Form tạo vai trò mới + chọn permission | Session | `create:role` |
 | `GET`/`POST` | `/staff/roles/{id}/edit/` | Form sửa vai trò (tên, mô tả, permission) | Session | `update:role` |

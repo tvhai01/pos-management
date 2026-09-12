@@ -449,6 +449,18 @@ def staff_deactivate(request: HttpRequest, user_id: UUID) -> HttpResponse:
     return redirect("dashboard:staff-list")
 
 
+@require_POST
+@require_permission("update", "user")
+def staff_activate(request: HttpRequest, user_id: UUID) -> HttpResponse:
+    """Reactivate a previously deactivated staff user.
+
+    POST /staff/{id}/activate/
+    """
+    UserService.activate_user(user_id=user_id)
+    messages.success(request, "Đã kích hoạt lại nhân viên.")
+    return redirect("dashboard:staff-list")
+
+
 # =============================================================================
 # Roles
 # =============================================================================

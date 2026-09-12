@@ -51,7 +51,14 @@
               &nbsp;·&nbsp;
               <form method="post" action="{% url 'dashboard:staff-deactivate' staff_user.id %}" style="display:inline">
                 {% csrf_token %}
-                <button type="submit" class="link-danger" style="background:none;border:none;padding:0;color:var(--danger);cursor:pointer">Vô hiệu hoá</button>
+                <button type="submit" style="background:none;border:none;padding:0;color:var(--danger);cursor:pointer;text-decoration:underline">Vô hiệu hoá</button>
+              </form>
+            {% endif %}
+            {% if can_update and not staff_user.is_active %}
+              &nbsp;·&nbsp;
+              <form method="post" action="{% url 'dashboard:staff-activate' staff_user.id %}" style="display:inline">
+                {% csrf_token %}
+                <button type="submit" style="background:none;border:none;padding:0;color:var(--success);cursor:pointer;text-decoration:underline">Kích hoạt lại</button>
               </form>
             {% endif %}
           </td>

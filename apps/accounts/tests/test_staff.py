@@ -15,6 +15,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Role, User
+from apps.accounts.services import UserService
 
 TEST_PASSWORD: str = "Pass123456!"  # noqa: S105 — test fixture value, not a secret
 
@@ -272,3 +273,52 @@ class TestDeactivateUser:
 
         # Assert
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+# =============================================================================
+# Reactivate User Tests
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestActivateUser:
+    """Tests for UserService.activate_user (used by the Staff dashboard)."""
+
+    def test_activate_user_reverses_deactivation(self, create_user: User) -> None:
+        """Test that a deactivated user can be reactivated back to active."""
+        # Arrange
+        create_user.is_active = False
+        create_user.save(update_fields=["is_active"])
+
+        # Act
+        reactivated = UserService.activate_user(user_id=create_user.id)
+
+        # Assert
+        assert reactivated.is_active is True
+        create_user.refresh_from_db()
+        assert create_user.is_active is True
+
+    def test_activate_via_api_patch(
+        self,
+        authenticated_user_management_client: APIClient,
+    ) -> None:
+        """Test that PATCH is_active=true on the users API reactivates a user."""
+        # Arrange
+        target_user = User.objects.create_user(
+            email="reactivate-me@example.com",
+            password=TEST_PASSWORD,
+            full_name="Reactivate Me",
+            is_active=False,
+        )
+
+        # Act
+        response = authenticated_user_management_client.patch(
+            f"/api/v1/users/{target_user.id}/",
+            {"is_active": True},
+            format="json",
+        )
+
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        target_user.refresh_from_db()
+        assert target_user.is_active is True

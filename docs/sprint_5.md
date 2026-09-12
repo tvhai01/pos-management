@@ -82,6 +82,20 @@ trong README phải được tạo thủ công bằng `createsuperuser` qua CLI.
   superuser tạo Permission thủ công qua Django Admin (`/admin/`, model đã
   đăng ký sẵn). Nên cân nhắc thêm seed command ở sprint sau.
 
+## Bổ sung sau review: kích hoạt lại nhân viên
+
+Trang Nhân viên chỉ có nút "Vô hiệu hoá" ban đầu, không có cách nào đảo
+ngược ngoài việc mở form sửa và tick lại "Đang hoạt động". Bổ sung:
+
+- `UserService.activate_user` (đối xứng với `deactivate_user` đã có).
+- `POST /staff/{id}/activate/` (`staff_activate` view, quyền `update:user` —
+  khác với `delete:user` của deactivate, vì đây là phục hồi trạng thái chứ
+  không phải một hành động phá huỷ).
+- Nút "Kích hoạt lại" trong `dashboard/staff/list.html`, chỉ hiện khi nhân
+  viên đang ở trạng thái vô hiệu hoá.
+- Test `TestActivateUser` (service-level + qua `PATCH is_active=true` của
+  API đã có sẵn).
+
 ## Demo data seeding
 
 Bổ sung `python manage.py seed_demo_data`

@@ -315,6 +315,30 @@ class UserService:
         logger.info("User deactivated: %s", user.email)
         return user
 
+    @staticmethod
+    @transaction.atomic
+    def activate_user(user_id: UUID) -> User:
+        """Reactivate a previously deactivated staff user account.
+
+        Args:
+            user_id: The UUID of the user to reactivate.
+
+        Returns:
+            The reactivated User instance.
+
+        Raises:
+            UserNotFoundError: If the user doesn't exist.
+        """
+        user = UserSelector.get_user_by_id(user_id)
+        if user is None:
+            raise UserNotFoundError()
+
+        user.is_active = True
+        user.save(update_fields=["is_active", "updated_at"])
+
+        logger.info("User reactivated: %s", user.email)
+        return user
+
 
 class RoleService:
     """Business logic for RBAC role management."""

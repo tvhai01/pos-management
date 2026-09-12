@@ -30,6 +30,11 @@ urlpatterns: list = [
         views.staff_deactivate,
         name="staff-deactivate",
     ),
+    path(
+        "staff/<uuid:user_id>/activate/",
+        views.staff_activate,
+        name="staff-activate",
+    ),
     path("staff/roles/", views.role_list, name="role-list"),
     path("staff/roles/create/", views.role_create, name="role-create"),
     path("staff/roles/<uuid:role_id>/edit/", views.role_edit, name="role-edit"),
