@@ -36,6 +36,7 @@ from apps.dashboard.forms import (
     LoginForm,
     LowStockThresholdForm,
     ProductUIForm,
+    ReportFilterForm,
     RoleForm,
     StaffForm,
     StockMovementForm,
@@ -65,6 +66,8 @@ from apps.product.exceptions import (
 )
 from apps.product.selectors import CategorySelector, ProductSelector
 from apps.product.services import CategoryService, ProductService
+from apps.reports import exports as report_exports
+from apps.reports.selectors import ReportSelector
 
 # =============================================================================
 # Auth
@@ -177,6 +180,15 @@ def index(request: HttpRequest) -> HttpResponse:
             "url_name": "dashboard:staff-list",
             "available": PermissionSelector.user_has_permission(
                 _authenticated_user(request), "view", "user"
+            ),
+        },
+        {
+            "name": "Báo cáo",
+            "description": "Doanh thu, sản phẩm bán chạy, tồn kho, thanh toán, "
+            "khách hàng.",
+            "url_name": "dashboard:report-dashboard",
+            "available": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "view", "report"
             ),
         },
         {
@@ -1010,7 +1022,16 @@ def inventory_threshold(request: HttpRequest, product_id: UUID) -> HttpResponse:
 @require_permission("view", "order")
 def order_list(request: HttpRequest) -> HttpResponse:
     orders = OrderSelector.get_all()
-    return render(request, "dashboard/orders/list.html", {"orders": orders, "can_create": PermissionSelector.user_has_permission(_authenticated_user(request), "create", "order")})
+    return render(
+        request,
+        "dashboard/orders/list.html",
+        {
+            "orders": orders,
+            "can_create": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "create", "order"
+            ),
+        },
+    )
 
 
 @require_permission("create", "order")
@@ -1024,12 +1045,28 @@ def order_create(request: HttpRequest) -> HttpResponse:
             quantities = request.POST.getlist("quantity")
             if customer is None or len(product_ids) != len(quantities):
                 raise ValueError("Customer and product rows are required.")
-            order, invoice = OrderService.create_order(customer=customer, items=[{"product_id": product_id, "quantity": quantity} for product_id, quantity in zip(product_ids, quantities, strict=True)], created_by=_authenticated_user(request))
-            messages.success(request, f"Đã tạo đơn {order.order_number} và hóa đơn {invoice.invoice_number}.")
+            order, invoice = OrderService.create_order(
+                customer=customer,
+                items=[
+                    {"product_id": product_id, "quantity": quantity}
+                    for product_id, quantity in zip(
+                        product_ids, quantities, strict=True
+                    )
+                ],
+                created_by=_authenticated_user(request),
+            )
+            messages.success(
+                request,
+                f"Đã tạo đơn {order.order_number} và hóa đơn {invoice.invoice_number}.",
+            )
             return redirect("dashboard:order-detail", order_id=order.id)
         except (KeyError, ValueError):
             messages.error(request, "Dữ liệu đơn hàng không hợp lệ.")
-    return render(request, "dashboard/orders/form.html", {"customers": customers, "products": products})
+    return render(
+        request,
+        "dashboard/orders/form.html",
+        {"customers": customers, "products": products},
+    )
 
 
 @require_permission("view", "order")
@@ -1041,7 +1078,20 @@ def order_detail(request: HttpRequest, order_id: UUID) -> HttpResponse:
     invoice = getattr(order, "invoice", None)
     payments = invoice.payments.all().order_by("-created_at") if invoice else []
     transactions = invoice.transactions.all().order_by("-created_at") if invoice else []
-    return render(request, "dashboard/orders/detail.html", {"order": order, "invoice": invoice, "payments": payments, "transactions": transactions, "can_update": PermissionSelector.user_has_permission(_authenticated_user(request), "update", "order"), "order_statuses": OrderStatus.choices})
+    return render(
+        request,
+        "dashboard/orders/detail.html",
+        {
+            "order": order,
+            "invoice": invoice,
+            "payments": payments,
+            "transactions": transactions,
+            "can_update": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "update", "order"
+            ),
+            "order_statuses": OrderStatus.choices,
+        },
+    )
 
 
 @require_permission("view", "invoice")
@@ -1051,7 +1101,11 @@ def invoice_list(request: HttpRequest) -> HttpResponse:
     search = request.GET.get("search", "").strip()
     if search:
         invoices = invoices.filter(invoice_number__icontains=search)
-    return render(request, "dashboard/invoices/list.html", {"invoices": invoices, "search": search})
+    return render(
+        request,
+        "dashboard/invoices/list.html",
+        {"invoices": invoices, "search": search},
+    )
 
 
 @require_permission("view", "invoice")
@@ -1063,15 +1117,30 @@ def invoice_detail(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
         return redirect("dashboard:invoice-list")
     payments = invoice.payments.all().order_by("-created_at")
     transactions = invoice.transactions.all().order_by("-created_at")
-    paid_amount = sum((payment.amount for payment in payments if payment.status == "SUCCESS"), Decimal("0"))
-    return render(request, "dashboard/invoices/detail.html", {"invoice": invoice, "payments": payments, "transactions": transactions, "paid_amount": paid_amount, "remaining_amount": max(invoice.total_amount - paid_amount, Decimal("0"))})
+    paid_amount = sum(
+        (payment.amount for payment in payments if payment.status == "SUCCESS"),
+        Decimal("0"),
+    )
+    return render(
+        request,
+        "dashboard/invoices/detail.html",
+        {
+            "invoice": invoice,
+            "payments": payments,
+            "transactions": transactions,
+            "paid_amount": paid_amount,
+            "remaining_amount": max(invoice.total_amount - paid_amount, Decimal("0")),
+        },
+    )
 
 
 @require_POST
 @require_permission("update", "invoice")
 def invoice_pending(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
     try:
-        InvoiceService.transition(invoice_id, InvoiceStatus.PENDING_PAYMENT, _authenticated_user(request))
+        InvoiceService.transition(
+            invoice_id, InvoiceStatus.PENDING_PAYMENT, _authenticated_user(request)
+        )
         messages.success(request, "Hóa đơn đã chuyển sang chờ thanh toán.")
     except (Invoice.DoesNotExist, ValueError):
         messages.error(request, "Không thể chuyển trạng thái hóa đơn.")
@@ -1082,7 +1151,9 @@ def invoice_pending(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
 @require_permission("create", "payment")
 def invoice_qr(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
     try:
-        _, checkout = PaymentService.create_qr_payment(invoice_id, created_by=_authenticated_user(request))
+        _, checkout = PaymentService.create_qr_payment(
+            invoice_id, created_by=_authenticated_user(request)
+        )
         request.session["checkout"] = checkout
         messages.success(request, "Đã tạo phiên thanh toán QR.")
     except (Invoice.DoesNotExist, ValueError):
@@ -1095,7 +1166,13 @@ def invoice_qr(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
 def invoice_manual(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
     try:
         amount = Decimal(request.POST.get("amount", "0"))
-        PaymentService.create_manual_payment(invoice_id, amount=amount, reference=request.POST.get("reference", ""), note=request.POST.get("note", ""), created_by=_authenticated_user(request))
+        PaymentService.create_manual_payment(
+            invoice_id,
+            amount=amount,
+            reference=request.POST.get("reference", ""),
+            note=request.POST.get("note", ""),
+            created_by=_authenticated_user(request),
+        )
         messages.success(request, "Đã ghi nhận thanh toán thủ công.")
     except (Invoice.DoesNotExist, InvalidOperation, ValueError):
         messages.error(request, "Dữ liệu thanh toán thủ công không hợp lệ.")
@@ -1106,8 +1183,159 @@ def invoice_manual(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
 @require_permission("update", "payment")
 def payment_cancel(request: HttpRequest, payment_id: UUID) -> HttpResponse:
     try:
-        PaymentService.cancel_payment(payment_id, cancelled_by=_authenticated_user(request))
+        PaymentService.cancel_payment(
+            payment_id, cancelled_by=_authenticated_user(request)
+        )
         messages.success(request, "Đã hủy thanh toán.")
     except (Payment.DoesNotExist, ValueError):
         messages.error(request, "Không thể hủy thanh toán này.")
+
+
+# =============================================================================
+# Reports
+# =============================================================================
+
+
+def _report_filter(request: HttpRequest) -> ReportFilterForm:
+    """Bind and validate the shared Report filter from query params.
+
+    Always bound to `request.GET` (never `None`) — every field is optional,
+    so an empty querystring (first visit, no filters chosen yet) still runs
+    `ReportFilterForm.clean()` and resolves the default 30-day range, instead
+    of leaving the form "unbound" (which `is_valid()` always fails).
+    """
+    form = ReportFilterForm(request.GET)
+    form.is_valid()
+    return form
+
+
+@require_permission("view", "report")
+def report_dashboard(request: HttpRequest) -> HttpResponse:
+    """Render an overview of every Report type for the selected date range.
+
+    GET /reports/
+    """
+    form = _report_filter(request)
+    context: dict[str, Any] = {"form": form}
+    if form.is_valid():
+        date_from = form.cleaned_data["date_from"]
+        date_to = form.cleaned_data["date_to"]
+        top_n = form.cleaned_data["top_n"]
+        sort_by = form.cleaned_data["sort_by"]
+        # Re-render unbound with the *resolved* values (defaults filled in by
+        # clean()), so the widgets show what is actually displayed below —
+        # a bound form would otherwise echo back the raw (possibly empty)
+        # querystring instead of the resolved date range.
+        context["form"] = ReportFilterForm(
+            initial={
+                "date_from": date_from,
+                "date_to": date_to,
+                "top_n": top_n,
+                "sort_by": sort_by,
+            }
+        )
+        context.update(
+            {
+                "date_from": date_from,
+                "date_to": date_to,
+                "top_n": top_n,
+                "sort_by": sort_by,
+                "revenue": ReportSelector.get_revenue_report(date_from, date_to),
+                "top_selling_products": ReportSelector.get_top_selling_products(
+                    date_from, date_to, top_n, sort_by
+                ),
+                "inventory_report": ReportSelector.get_inventory_report(
+                    date_from, date_to
+                ),
+                "payment_breakdown": ReportSelector.get_payment_breakdown(
+                    date_from, date_to
+                ),
+                "customer_report": ReportSelector.get_customer_report(
+                    date_from, date_to, top_n
+                ),
+                "can_export": PermissionSelector.user_has_permission(
+                    _authenticated_user(request), "export", "report"
+                ),
+            }
+        )
+    return render(request, "dashboard/reports/index.html", context)
+
+
+@require_permission("export", "report")
+def report_revenue_export(request: HttpRequest) -> HttpResponse:
+    """Export the revenue report as CSV."""
+    form = _report_filter(request)
+    if not form.is_valid():
+        messages.error(request, "Khoảng thời gian không hợp lệ.")
+        return redirect("dashboard:report-dashboard")
+    data = ReportSelector.get_revenue_report(
+        form.cleaned_data["date_from"], form.cleaned_data["date_to"]
+    )
+    header, rows = report_exports.revenue_csv(data)
+    return report_exports.build_csv_response("bao_cao_doanh_thu.csv", header, rows)
+
+
+@require_permission("export", "report")
+def report_top_selling_export(request: HttpRequest) -> HttpResponse:
+    """Export the top-selling products report as CSV."""
+    form = _report_filter(request)
+    if not form.is_valid():
+        messages.error(request, "Khoảng thời gian không hợp lệ.")
+        return redirect("dashboard:report-dashboard")
+    data = ReportSelector.get_top_selling_products(
+        form.cleaned_data["date_from"],
+        form.cleaned_data["date_to"],
+        form.cleaned_data["top_n"],
+        form.cleaned_data["sort_by"],
+    )
+    header, rows = report_exports.top_selling_products_csv(data)
+    return report_exports.build_csv_response(
+        "bao_cao_san_pham_ban_chay.csv", header, rows
+    )
+
+
+@require_permission("export", "report")
+def report_inventory_export(request: HttpRequest) -> HttpResponse:
+    """Export the inventory report as CSV."""
+    form = _report_filter(request)
+    if not form.is_valid():
+        messages.error(request, "Khoảng thời gian không hợp lệ.")
+        return redirect("dashboard:report-dashboard")
+    data = ReportSelector.get_inventory_report(
+        form.cleaned_data["date_from"], form.cleaned_data["date_to"]
+    )
+    header, rows = report_exports.inventory_csv(data)
+    return report_exports.build_csv_response("bao_cao_ton_kho.csv", header, rows)
+
+
+@require_permission("export", "report")
+def report_payment_breakdown_export(request: HttpRequest) -> HttpResponse:
+    """Export the payment method/provider breakdown report as CSV."""
+    form = _report_filter(request)
+    if not form.is_valid():
+        messages.error(request, "Khoảng thời gian không hợp lệ.")
+        return redirect("dashboard:report-dashboard")
+    data = ReportSelector.get_payment_breakdown(
+        form.cleaned_data["date_from"], form.cleaned_data["date_to"]
+    )
+    header, rows = report_exports.payment_breakdown_csv(data)
+    return report_exports.build_csv_response(
+        "bao_cao_phuong_thuc_thanh_toan.csv", header, rows
+    )
+
+
+@require_permission("export", "report")
+def report_customers_export(request: HttpRequest) -> HttpResponse:
+    """Export the customer report as CSV."""
+    form = _report_filter(request)
+    if not form.is_valid():
+        messages.error(request, "Khoảng thời gian không hợp lệ.")
+        return redirect("dashboard:report-dashboard")
+    data = ReportSelector.get_customer_report(
+        form.cleaned_data["date_from"],
+        form.cleaned_data["date_to"],
+        form.cleaned_data["top_n"],
+    )
+    header, rows = report_exports.customer_report_csv(data)
+    return report_exports.build_csv_response("bao_cao_khach_hang.csv", header, rows)
     return redirect("dashboard:invoice-list")

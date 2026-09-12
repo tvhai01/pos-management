@@ -54,6 +54,11 @@ FEATURE_MODULES: dict[str, dict[str, str]] = {
         "base_url": "/api/v1/inventory/",
         "description": "Quản lý tồn hiện tại và lịch sử nhập, xuất, điều chỉnh kho.",
     },
+    "reports": {
+        "name": "Report",
+        "base_url": "/api/v1/reports/",
+        "description": "Báo cáo doanh thu, sản phẩm bán chạy, tồn kho, thanh toán, khách hàng.",
+    },
     "admin": {
         "name": "Django Admin",
         "base_url": "/admin/",

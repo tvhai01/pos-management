@@ -23,6 +23,8 @@ from apps.product.validators import (
     normalize_sku,
     parse_price,
 )
+from apps.reports.constants import DEFAULT_TOP_N, MAX_TOP_N, TopSellingSortBy
+from apps.reports.validators import resolve_date_range
 
 
 class LoginForm(forms.Form):
@@ -333,3 +335,45 @@ class LowStockThresholdForm(forms.Form):
         decimal_places=3,
         min_value=Decimal("0"),
     )
+
+
+class ReportFilterForm(forms.Form):
+    """Validate the shared date-range/top-N filter on the Report dashboard.
+
+    Reuses `resolve_date_range` (also used by the API's
+    `ReportDateRangeSerializer`) so both transports resolve a missing/invalid
+    range identically.
+    """
+
+    date_from = forms.DateField(label="Từ ngày", required=False)
+    date_to = forms.DateField(label="Đến ngày", required=False)
+    top_n = forms.IntegerField(
+        label="Top N",
+        required=False,
+        min_value=1,
+        max_value=MAX_TOP_N,
+    )
+    sort_by = forms.ChoiceField(
+        label="Sắp xếp theo",
+        choices=TopSellingSortBy.choices,
+        required=False,
+    )
+
+    def clean(self) -> dict[str, Any]:
+        """Resolve date defaults and reject an inverted range."""
+        cleaned_data = super().clean() or {}
+        try:
+            date_from, date_to = resolve_date_range(
+                cleaned_data.get("date_from"), cleaned_data.get("date_to")
+            )
+        except ValueError as exc:
+            self.add_error("date_from", str(exc))
+            return cleaned_data
+
+        cleaned_data["date_from"] = date_from
+        cleaned_data["date_to"] = date_to
+        cleaned_data["top_n"] = cleaned_data.get("top_n") or DEFAULT_TOP_N
+        cleaned_data["sort_by"] = (
+            cleaned_data.get("sort_by") or TopSellingSortBy.REVENUE
+        )
+        return cleaned_data

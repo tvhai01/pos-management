@@ -79,10 +79,22 @@ urlpatterns: list = [
     path("orders/create/", views.order_create, name="order-create"),
     path("orders/<uuid:order_id>/", views.order_detail, name="order-detail"),
     path("invoices/<uuid:invoice_id>/", views.invoice_detail, name="invoice-detail"),
-    path("invoices/<uuid:invoice_id>/pending/", views.invoice_pending, name="invoice-pending"),
+    path(
+        "invoices/<uuid:invoice_id>/pending/",
+        views.invoice_pending,
+        name="invoice-pending",
+    ),
     path("invoices/<uuid:invoice_id>/qr/", views.invoice_qr, name="invoice-qr"),
-    path("invoices/<uuid:invoice_id>/manual/", views.invoice_manual, name="invoice-manual"),
-    path("payments/<uuid:payment_id>/cancel/", views.payment_cancel, name="payment-cancel"),
+    path(
+        "invoices/<uuid:invoice_id>/manual/",
+        views.invoice_manual,
+        name="invoice-manual",
+    ),
+    path(
+        "payments/<uuid:payment_id>/cancel/",
+        views.payment_cancel,
+        name="payment-cancel",
+    ),
     path(
         "inventory/<uuid:product_id>/",
         views.inventory_detail,
@@ -97,5 +109,31 @@ urlpatterns: list = [
         "inventory/<uuid:product_id>/threshold/",
         views.inventory_threshold,
         name="inventory-threshold",
+    ),
+    path("reports/", views.report_dashboard, name="report-dashboard"),
+    path(
+        "reports/revenue/export/",
+        views.report_revenue_export,
+        name="report-revenue-export",
+    ),
+    path(
+        "reports/products/top-selling/export/",
+        views.report_top_selling_export,
+        name="report-top-selling-export",
+    ),
+    path(
+        "reports/inventory/export/",
+        views.report_inventory_export,
+        name="report-inventory-export",
+    ),
+    path(
+        "reports/payments/breakdown/export/",
+        views.report_payment_breakdown_export,
+        name="report-payment-breakdown-export",
+    ),
+    path(
+        "reports/customers/export/",
+        views.report_customers_export,
+        name="report-customers-export",
     ),
 ]

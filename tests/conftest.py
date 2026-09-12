@@ -652,3 +652,79 @@ def authenticated_inventory_client(
     """Return an API client authenticated with Inventory permissions."""
     api_client.force_authenticate(user=user_with_inventory_role)
     return api_client
+
+
+# =============================================================================
+# Report Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def view_report_permission() -> Permission:
+    """Create a 'view report' permission."""
+    return Permission.objects.create(
+        name="View Report",
+        action=PermissionAction.VIEW,
+        resource=PermissionResource.REPORT,
+    )
+
+
+@pytest.fixture
+def export_report_permission() -> Permission:
+    """Create an 'export report' permission."""
+    return Permission.objects.create(
+        name="Export Report",
+        action=PermissionAction.EXPORT,
+        resource=PermissionResource.REPORT,
+    )
+
+
+@pytest.fixture
+def view_only_report_role(view_report_permission: Permission) -> Role:
+    """Create a role with only `view:report` (no export)."""
+    role = Role.objects.create(name="Report Viewer")
+    role.permissions.set([view_report_permission])
+    return role
+
+
+@pytest.fixture
+def report_manager_role(
+    view_report_permission: Permission,
+    export_report_permission: Permission,
+) -> Role:
+    """Create a role with full Report access (view + export)."""
+    role = Role.objects.create(name="Report Manager")
+    role.permissions.set([view_report_permission, export_report_permission])
+    return role
+
+
+@pytest.fixture
+def user_with_view_only_report_role(create_user: User, view_only_report_role: Role) -> User:
+    """Assign only `view:report` to the standard test user."""
+    UserRole.objects.create(user=create_user, role=view_only_report_role)
+    return create_user
+
+
+@pytest.fixture
+def user_with_report_role(create_user: User, report_manager_role: Role) -> User:
+    """Assign full Report access to the standard test user."""
+    UserRole.objects.create(user=create_user, role=report_manager_role)
+    return create_user
+
+
+@pytest.fixture
+def authenticated_view_only_report_client(
+    api_client: APIClient, user_with_view_only_report_role: User
+) -> APIClient:
+    """Return an API client authenticated with only `view:report`."""
+    api_client.force_authenticate(user=user_with_view_only_report_role)
+    return api_client
+
+
+@pytest.fixture
+def authenticated_report_client(
+    api_client: APIClient, user_with_report_role: User
+) -> APIClient:
+    """Return an API client authenticated with full Report access."""
+    api_client.force_authenticate(user=user_with_report_role)
+    return api_client
