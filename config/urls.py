@@ -26,6 +26,7 @@ urlpatterns: list = [
     path("api/v1/", include("apps.payments.urls")),
     path("api/v1/", include("apps.product.urls")),
     path("api/v1/", include("apps.inventory.urls")),
+    path("api/v1/", include("apps.reports.urls")),
 ]
 
 # Debug Toolbar — only in development
