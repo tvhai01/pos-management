@@ -107,7 +107,14 @@ curl http://localhost:8000/api/v1/
       "health": { "name": "Health Check", "base_url": "/api/v1/health/", "description": "..." },
       "auth": { "name": "Authentication", "base_url": "/api/v1/auth/", "description": "..." },
       "rbac": { "name": "RBAC — Roles & Permissions", "base_url": "/api/v1/roles/", "description": "..." },
+      "users": { "name": "User Management", "base_url": "/api/v1/users/", "description": "..." },
       "customers": { "name": "Customer Management", "base_url": "/api/v1/customers/", "description": "..." },
+      "orders": { "name": "Order Management", "base_url": "/api/v1/orders/", "description": "..." },
+      "invoices": { "name": "Invoice Management", "base_url": "/api/v1/invoices/", "description": "..." },
+      "payments": { "name": "Payment Management", "base_url": "/api/v1/payments/", "description": "..." },
+      "products": { "name": "Product Management", "base_url": "/api/v1/products/", "description": "..." },
+      "inventory": { "name": "Inventory Management", "base_url": "/api/v1/inventory/", "description": "..." },
+      "reports": { "name": "Report", "base_url": "/api/v1/reports/", "description": "..." },
       "admin": { "name": "Django Admin", "base_url": "/admin/", "description": "..." }
     }
   }
@@ -292,6 +299,67 @@ Tham số query của `GET /api/v1/customers/`:
 | `status` | Lọc theo trạng thái chính xác: `active`, `inactive`, `blocked`. |
 | `ordering` | Sắp xếp theo `full_name`, `customer_code`, `status`, `created_at`, `updated_at`. Thêm `-` phía trước để sắp xếp giảm dần. |
 | `page`, `page_size` | Phân trang chuẩn (mặc định 20/trang, tối đa 100/trang). |
+
+### Quản lý Đơn hàng (Order Management)
+
+Tạo đơn hàng sẽ **tự động tạo kèm một Hoá đơn (Invoice) liên kết 1-1** trong
+cùng transaction — không có endpoint tạo Invoice riêng cho luồng bán hàng
+thông thường (`POST /api/v1/invoices/` chỉ dùng cho trường hợp tạo hoá đơn
+độc lập không qua Order).
+
+| Method | Endpoint | Mô tả | Auth | Permission |
+|---|---|---|---|---|
+| `GET` | `/api/v1/orders/` | Danh sách/tìm kiếm/sắp xếp đơn hàng (có phân trang) | Có | `view:order` |
+| `POST` | `/api/v1/orders/` | Tạo đơn hàng mới (tự sinh kèm Invoice) | Có | `create:order` |
+| `GET` | `/api/v1/orders/{id}/` | Chi tiết đơn hàng kèm danh sách dòng hàng (items) | Có | `view:order` |
+| `POST` | `/api/v1/orders/{id}/` | Chuyển trạng thái đơn hàng (`{"status": "..."}`) | Có | `update:order` |
+
+Trạng thái (`OrderStatus`): `draft` → `pending_payment`/`cancelled` →
+`paid` → `completed` (cancelled/completed là trạng thái cuối). Chuyển
+Order sang `paid`/`cancelled` sẽ đồng bộ trạng thái tương ứng sang Invoice
+liên kết.
+
+Tham số query của `GET /api/v1/orders/`: `search` (khớp `order_number`, tên
+hoặc SĐT khách hàng), `ordering` (`order_number`, `total_amount`,
+`status`, `created_at`), `page`, `page_size`.
+
+### Quản lý Hoá đơn (Invoice Management)
+
+| Method | Endpoint | Mô tả | Auth | Permission |
+|---|---|---|---|---|
+| `GET` | `/api/v1/invoices/` | Danh sách/tìm kiếm/sắp xếp hoá đơn (có phân trang) | Có | `view:invoice` |
+| `POST` | `/api/v1/invoices/` | Tạo hoá đơn độc lập (không qua Order) | Có | `create:invoice` |
+| `GET` | `/api/v1/invoices/{id}/` | Chi tiết hoá đơn kèm danh sách payment/transaction và tổng hợp đã thu/còn lại | Có | `view:invoice` |
+| `POST` | `/api/v1/invoices/{id}/` | Chuyển trạng thái hoá đơn (`{"status": "..."}`) | Có | `update:invoice` |
+
+Trạng thái (`InvoiceStatus`): `draft` → `pending_payment`/`cancelled` →
+`paid` (cancelled/paid là trạng thái cuối). Chuyển Invoice sang `paid` sẽ
+tự chuyển Order liên kết (nếu có, đang ở `pending_payment`) sang `paid`.
+**Doanh thu (Report) chỉ tính trên Invoice ở trạng thái `paid`** — xem
+[`docs/prd_report.md`](docs/prd_report.md) mục 9.
+
+Tham số query của `GET /api/v1/invoices/`: `search` (khớp `invoice_number`,
+tên hoặc SĐT khách hàng), `ordering`, `page`, `page_size`.
+
+### Quản lý Thanh toán (Payment Management)
+
+| Method | Endpoint | Mô tả | Auth | Permission |
+|---|---|---|---|---|
+| `GET` | `/api/v1/payments/` | Danh sách toàn bộ payment (có phân trang) | Có | `view:payment` |
+| `POST` | `/api/v1/payments/` | Tạo thanh toán QR (SePay) cho một hoá đơn | Có | `create:payment` |
+| `POST` | `/api/v1/invoices/{invoice_id}/payments/` | Tạo thanh toán cho hoá đơn — QR hoặc thủ công (`payment_method`) | Có | `create:payment` (QR) / `approve:payment` (thủ công) |
+| `GET` | `/api/v1/payments/{id}/` | Chi tiết một payment | Có | `view:payment` |
+| `POST` | `/api/v1/payments/{id}/cancel/` | Huỷ một payment | Có | `update:payment` |
+| `GET` | `/api/v1/payments/{id}/status/` | Trạng thái payment (tự chuyển `expired` nếu quá hạn) | Có | `view:payment` |
+| `GET` | `/api/v1/payments/{id}/transactions/` | Lịch sử transaction của một payment | Có | `view:payment` |
+| `POST` | `/api/v1/payments/{invoice_id}/manual/` | Ghi nhận thanh toán thủ công cho hoá đơn | Có | `approve:payment` |
+| `POST` | `/api/v1/payments/sepay/webhook/` | Webhook nhận kết quả thanh toán từ SePay | **Không** (`AllowAny`, xác thực bằng chữ ký `X-SePay-Signature`) | — |
+
+Trạng thái (`PaymentStatus`): `pending` → `processing` → `success` /
+`failed` / `expired` / `cancelled`. Phương thức (`PaymentMethod`): `qr`
+(SePay), `manual`. Mỗi payment có thể có nhiều `PaymentTransaction` (thử
+lại sau khi thất bại) — đây là lý do Report tính doanh thu theo Invoice
+thay vì cộng trực tiếp theo Payment.
 
 ### Quản lý Sản phẩm và Danh mục (Product Management)
 
@@ -634,6 +702,9 @@ docker compose exec backend python manage.py makemigrations
 
 # Áp dụng migration
 docker compose exec backend python manage.py migrate
+
+# Seed lại dữ liệu demo (superuser, nhân viên, khách hàng, sản phẩm, tồn kho)
+docker compose exec backend python manage.py seed_demo_data
 ```
 
 ## Biến môi trường
@@ -649,10 +720,15 @@ Xem [.env.example](.env.example) để biết toàn bộ cấu hình khả dụn
 | [`docs/sprint_0.md`](docs/sprint_0.md) | Hạ tầng nền tảng (Docker, Django, response envelope). |
 | [`docs/sprint_1.md`](docs/sprint_1.md) | Authentication (JWT) & RBAC. |
 | [`docs/sprint_2.md`](docs/sprint_2.md) | Customer Management (module tham chiếu chuẩn cho các sprint sau). |
+| [`docs/prd_client.md`](docs/prd_client.md) | PRD hồi tố cho Customer Management, đối chiếu từ `sprint_2.md`. |
 | [`docs/prd_product.md`](docs/prd_product.md) | Đặc tả nghiệp vụ Product/Category và hợp đồng tích hợp Inventory. |
 | [`docs/sprint_3.md`](docs/sprint_3.md) | Product Management và nền dữ liệu cho Inventory. |
 | [`docs/prd_inventory.md`](docs/prd_inventory.md) | Đặc tả nghiệp vụ, database và hợp đồng giao dịch Inventory. |
 | [`docs/sprint_4.md`](docs/sprint_4.md) | Inventory Management, sổ biến động và kiểm soát đồng thời. |
+| [`docs/prd_report.md`](docs/prd_report.md) | Đặc tả nghiệp vụ Report — nguồn dữ liệu, quy tắc tính doanh thu, RBAC. |
+| [`docs/sprint_5.md`](docs/sprint_5.md) | Report Management — doanh thu, sản phẩm bán chạy, tồn kho, thanh toán, khách hàng. |
+| [`docs/prd_staff.md`](docs/prd_staff.md) | PRD Staff Management — tạo/sửa/vô hiệu hoá nhân viên và tạo/sửa vai trò (Role). |
+| [`docs/sprint_6.md`](docs/sprint_6.md) | Staff Management (User + Role UI) và dữ liệu demo tự động seed. |
 
 ## License
 

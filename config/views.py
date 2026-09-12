@@ -44,6 +44,21 @@ FEATURE_MODULES: dict[str, dict[str, str]] = {
         "base_url": "/api/v1/customers/",
         "description": "Quản lý khách hàng: tạo, cập nhật, tìm kiếm, xoá mềm.",
     },
+    "orders": {
+        "name": "Order Management",
+        "base_url": "/api/v1/orders/",
+        "description": "Tạo đơn hàng, tự động sinh hoá đơn, chuyển trạng thái đơn.",
+    },
+    "invoices": {
+        "name": "Invoice Management",
+        "base_url": "/api/v1/invoices/",
+        "description": "Quản lý hoá đơn, trạng thái thanh toán và tổng hợp giao dịch.",
+    },
+    "payments": {
+        "name": "Payment Management",
+        "base_url": "/api/v1/payments/",
+        "description": "Thanh toán QR (SePay), thanh toán thủ công, huỷ/tra cứu giao dịch.",
+    },
     "products": {
         "name": "Product Management",
         "base_url": "/api/v1/products/",
