@@ -1011,6 +1011,14 @@ def inventory_detail(request: HttpRequest, product_id: UUID) -> HttpResponse:
             "can_update_threshold": PermissionSelector.user_has_permission(
                 _authenticated_user(request), "update", "inventory"
             ),
+            "active_module": "inventory",
+            "can_view_product": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "view", "product"
+            ),
+            "can_view_inventory": True,
+            "can_view_report": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "view", "report"
+            ),
         },
     )
 
