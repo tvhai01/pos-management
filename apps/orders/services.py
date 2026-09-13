@@ -24,9 +24,8 @@ class OrderService:
 
         if not items:
             raise ValueError("At least one order item is required.")
-        order_number = f"ORD-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
-        order = Order.objects.create(order_number=order_number, customer=customer, subtotal=Decimal("0"), discount=discount, tax=tax, total_amount=Decimal("0"), currency=currency.upper(), created_by=created_by, updated_by=created_by)
         subtotal = Decimal("0")
+        item_data = []
         for item in items:
             product = ProductSelector.get_sellable_product_for_update(item["product_id"])
             if product is None:
@@ -35,14 +34,15 @@ class OrderService:
             if quantity <= 0:
                 raise ValueError("Product quantity must be greater than zero.")
             item_subtotal = product.selling_price * quantity
-            OrderItem.objects.create(order=order, product=product, product_name=product.name, product_sku=product.sku, unit_price=product.selling_price, quantity=quantity, subtotal=item_subtotal, total_amount=item_subtotal, created_by=created_by, updated_by=created_by)
+            item_data.append((product, quantity, item_subtotal))
             subtotal += item_subtotal
         total = subtotal - discount + tax
         if total <= 0:
             raise ValueError("Order total must be greater than zero.")
-        order.subtotal = subtotal
-        order.total_amount = total
-        order.save(update_fields=["subtotal", "total_amount", "updated_at"])
+        order_number = f"ORD-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
+        order = Order.objects.create(order_number=order_number, customer=customer, subtotal=subtotal, discount=discount, tax=tax, total_amount=total, currency=currency.upper(), created_by=created_by, updated_by=created_by)
+        for product, quantity, item_subtotal in item_data:
+            OrderItem.objects.create(order=order, product=product, product_name=product.name, product_sku=product.sku, unit_price=product.selling_price, quantity=quantity, subtotal=item_subtotal, total_amount=item_subtotal, created_by=created_by, updated_by=created_by)
         invoice = InvoiceService.create_invoice(order=order, customer=customer, invoice_number=f"INV-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}", subtotal=order.subtotal, discount=order.discount, tax=order.tax, currency=order.currency, created_by=created_by)
         logger.info("order.created order=%s invoice=%s", order.id, invoice.id)
         return order, invoice

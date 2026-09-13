@@ -1,5 +1,95 @@
 {% extends "dashboard/base.html" %}
 {% block title %}Tạo đơn hàng{% endblock %}
 {% block content %}
-<div class="card"><h1>Tạo đơn hàng</h1><form method="post">{% csrf_token %}<label>Khách hàng<select name="customer_id" required>{% for customer in customers %}<option value="{{ customer.id }}">{{ customer.full_name }} — {{ customer.phone }}</option>{% endfor %}</select></label><div id="items"><div class="order-row"><select name="product_id" required>{% for product in products %}<option value="{{ product.id }}">{{ product.name }} — {{ product.sku }} — {{ product.selling_price }} VND</option>{% endfor %}</select><input name="quantity" type="number" min="0.001" step="0.001" value="1" required></div></div><button class="btn" type="button" onclick="addRow()">+ Thêm sản phẩm</button><button class="btn" type="submit">Tạo đơn hàng</button></form></div><script>function addRow(){const row=document.querySelector('.order-row').cloneNode(true);document.getElementById('items').appendChild(row);}</script>
+<section class="order-page">
+	<div class="order-hero">
+		<div>
+			<p class="eyebrow">BÁN HÀNG / ĐƠN HÀNG MỚI</p>
+			<h1>Tạo đơn hàng</h1>
+			<p class="order-subtitle">Chọn khách hàng và thêm sản phẩm để bắt đầu đơn hàng.</p>
+		</div>
+		<span class="order-status">Bản nháp</span>
+	</div>
+
+	<form class="order-form" method="post">
+		{% csrf_token %}
+		<div class="form-section customer-section">
+			<div class="section-heading">
+				<span class="section-number">01</span>
+				<div>
+					<h2>Thông tin khách hàng</h2>
+					<p>Đơn hàng sẽ được gắn với khách hàng đã chọn.</p>
+				</div>
+			</div>
+			<label class="field-label" for="customer-id">Khách hàng</label>
+			<select class="form-control" id="customer-id" name="customer_id" required>
+				{% for customer in customers %}
+					<option value="{{ customer.id }}">{{ customer.full_name }} — {{ customer.phone }}</option>
+				{% endfor %}
+			</select>
+		</div>
+
+		<div class="form-section">
+			<div class="section-heading section-heading-products">
+				<span class="section-number">02</span>
+				<div>
+					<h2>Sản phẩm trong đơn</h2>
+					<p>Thêm một hoặc nhiều sản phẩm và nhập số lượng tương ứng.</p>
+				</div>
+				<button class="btn btn-secondary add-product" type="button" onclick="addRow()">
+					<span aria-hidden="true">+</span> Thêm sản phẩm
+				</button>
+			</div>
+
+			<div class="product-labels" aria-hidden="true">
+				<span>Sản phẩm</span>
+				<span>Số lượng</span>
+				<span></span>
+			</div>
+			<div id="items">
+				<div class="order-row">
+					<select name="product_id" aria-label="Sản phẩm" required>
+						{% for product in products %}
+							<option value="{{ product.id }}">{{ product.name }} — {{ product.sku }} — {{ product.selling_price }} VND</option>
+						{% endfor %}
+					</select>
+					<input name="quantity" aria-label="Số lượng" type="number" min="0.001" step="0.001" value="1" required>
+					<button class="remove-product" type="button" aria-label="Xóa sản phẩm" onclick="removeRow(this)">×</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="order-actions">
+			<a class="btn btn-secondary" href="{% url 'dashboard:order-list' %}">Hủy</a>
+			<button class="btn" type="submit"><span aria-hidden="true">✓</span> Tạo đơn hàng</button>
+		</div>
+	</form>
+</section>
+<script>
+	function addRow() {
+		const firstRow = document.querySelector('.order-row');
+		const row = firstRow.cloneNode(true);
+		row.querySelector('select').selectedIndex = 0;
+		row.querySelector('input').value = '1';
+		document.getElementById('items').appendChild(row);
+		updateRemoveButtons();
+	}
+
+	function removeRow(button) {
+		const rows = document.querySelectorAll('.order-row');
+		if (rows.length > 1) {
+			button.closest('.order-row').remove();
+			updateRemoveButtons();
+		}
+	}
+
+	function updateRemoveButtons() {
+		const rows = document.querySelectorAll('.order-row');
+		rows.forEach(row => {
+			row.querySelector('.remove-product').disabled = rows.length === 1;
+		});
+	}
+
+	updateRemoveButtons();
+</script>
 {% endblock %}

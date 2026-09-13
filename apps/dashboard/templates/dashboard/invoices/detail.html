@@ -8,8 +8,25 @@
   <p>Trạng thái hóa đơn: <strong>{{ invoice.status }}</strong></p>
   {% if invoice.status == "DRAFT" %}<form method="post" action="{% url 'dashboard:invoice-pending' invoice.id %}">{% csrf_token %}<button class="btn" type="submit">Chuyển sang chờ thanh toán</button></form>{% endif %}
   {% if invoice.status == "PENDING_PAYMENT" %}
-    <form method="post" action="{% url 'dashboard:invoice-qr' invoice.id %}">{% csrf_token %}<button class="btn" type="submit">Thanh toán QR</button></form>
-    <form method="post" action="{% url 'dashboard:invoice-manual' invoice.id %}">{% csrf_token %}<input name="amount" placeholder="Số tiền" required><input name="reference" placeholder="Mã tham chiếu"><input name="note" placeholder="Ghi chú"><button class="btn" type="submit">Thanh toán thủ công</button></form>
+    <div class="payment-actions">
+      <form method="post" action="{% url 'dashboard:invoice-qr' invoice.id %}">{% csrf_token %}<button class="btn" type="submit">Thanh toán QR</button></form>
+      <form class="manual-payment-form" method="post" action="{% url 'dashboard:invoice-manual' invoice.id %}">
+        {% csrf_token %}
+        <label class="payment-field">
+          <span>Số tiền</span>
+          <input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>
+        </label>
+        <label class="payment-field">
+          <span>Mã tham chiếu</span>
+          <input name="reference" placeholder="Không bắt buộc">
+        </label>
+        <label class="payment-field payment-note-field">
+          <span>Ghi chú</span>
+          <input name="note" placeholder="Không bắt buộc">
+        </label>
+        <button class="btn" type="submit">Thanh toán thủ công</button>
+      </form>
+    </div>
   {% endif %}
 </div>
 <div class="card"><h2>Lịch sử thanh toán</h2><table><thead><tr><th>Thời gian</th><th>Provider</th><th>Số tiền</th><th>Trạng thái</th><th>Nội dung</th></tr></thead><tbody>{% for transaction in transactions %}<tr><td>{{ transaction.created_at }}</td><td>{{ transaction.provider }}</td><td>{{ transaction.amount }} {{ transaction.currency }}</td><td>{{ transaction.status }}</td><td>{{ transaction.transaction_content }}</td></tr>{% empty %}<tr><td colspan="5">Chưa có giao dịch.</td></tr>{% endfor %}</tbody></table></div>
