@@ -1,0 +1,184 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Tồn kho {{ inventory.product.sku }} — POS Management System{% endblock %}
+{% block page_class %}workspace-page{% endblock %}
+
+{% block content %}
+<div class="workspace-shell">
+  {% include "dashboard/includes/workspace_sidebar.html" %}
+
+  <main class="workspace-content workspace-detail-content">
+    <section class="workspace-panel inventory-detail-header" aria-labelledby="inventory-detail-heading">
+      <a class="back-link" href="{% url 'dashboard:inventory-list' %}">Quay lại kho hàng</a>
+
+      <div class="inventory-detail-title">
+        <div>
+          <h1 id="inventory-detail-heading">{{ inventory.product.name }}</h1>
+          <p>SKU: {{ inventory.product.sku }} · Đơn vị tính: {{ inventory.product.get_unit_display }}</p>
+        </div>
+        {% if inventory.stock_status == "out_of_stock" %}
+          <span class="status-pill status-out">Hết hàng</span>
+        {% elif inventory.stock_status == "low_stock" %}
+          <span class="status-pill status-low">Sắp hết</span>
+        {% else %}
+          <span class="status-pill status-stocked">Đủ hàng</span>
+        {% endif %}
+      </div>
+
+      <dl class="inventory-summary">
+        <div>
+          <dt>Tồn hiện tại</dt>
+          <dd>{{ inventory.quantity|floatformat:"-3" }} {{ inventory.product.get_unit_display }}</dd>
+        </div>
+        <div>
+          <dt>Ngưỡng tồn thấp</dt>
+          <dd>{{ inventory.low_stock_threshold|floatformat:"-3" }} {{ inventory.product.get_unit_display }}</dd>
+        </div>
+        <div>
+          <dt>Cập nhật gần nhất</dt>
+          <dd class="summary-meta">{{ inventory.updated_at|date:"d/m/Y" }} <small>{{ inventory.updated_at|date:"H:i" }}</small></dd>
+        </div>
+      </dl>
+    </section>
+
+    {% if can_create_movement or can_update_threshold %}
+      <div class="inventory-action-grid">
+        {% if can_create_movement %}
+          <section class="workspace-panel inventory-form-panel" aria-labelledby="movement-heading">
+            <div class="panel-heading">
+              <div>
+                <h2 id="movement-heading">Ghi nhận giao dịch kho</h2>
+                <p>Nhập kho, xuất kho hoặc điều chỉnh lại số tồn thực tế.</p>
+              </div>
+            </div>
+
+            <form class="inventory-form" method="post" action="{% url 'dashboard:inventory-movement' inventory.product.id %}">
+              {% csrf_token %}
+              {% if movement_form.non_field_errors %}
+                <div class="form-errors">{{ movement_form.non_field_errors }}</div>
+              {% endif %}
+
+              <div class="inventory-form-row">
+                <div class="form-field">
+                  {{ movement_form.movement_type.label_tag }}
+                  {{ movement_form.movement_type }}
+                  {% for error in movement_form.movement_type.errors %}<p class="form-errors">{{ error }}</p>{% endfor %}
+                </div>
+                <div class="form-field">
+                  {{ movement_form.quantity.label_tag }}
+                  {{ movement_form.quantity }}
+                  {% for error in movement_form.quantity.errors %}<p class="form-errors">{{ error }}</p>{% endfor %}
+                </div>
+              </div>
+
+              {% if movement_form.quantity.help_text %}
+                <p class="form-help">{{ movement_form.quantity.help_text }}</p>
+              {% endif %}
+
+              <div class="form-field">
+                {{ movement_form.reference_code.label_tag }}
+                {{ movement_form.reference_code }}
+                <p class="form-help">Dùng mã phiếu nhập, phiếu xuất hoặc mã kiểm kê nếu có.</p>
+                {% for error in movement_form.reference_code.errors %}<p class="form-errors">{{ error }}</p>{% endfor %}
+              </div>
+
+              <div class="form-field">
+                {{ movement_form.note.label_tag }}
+                {{ movement_form.note }}
+                {% for error in movement_form.note.errors %}<p class="form-errors">{{ error }}</p>{% endfor %}
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn">Lưu giao dịch</button>
+              </div>
+            </form>
+          </section>
+        {% endif %}
+
+        {% if can_update_threshold %}
+          <section class="workspace-panel inventory-form-panel threshold-panel" aria-labelledby="threshold-heading">
+            <div class="panel-heading">
+              <div>
+                <h2 id="threshold-heading">Cảnh báo tồn thấp</h2>
+                <p>Sản phẩm được báo sắp hết khi tồn kho bằng hoặc thấp hơn ngưỡng này.</p>
+              </div>
+            </div>
+
+            <form class="inventory-form" method="post" action="{% url 'dashboard:inventory-threshold' inventory.product.id %}">
+              {% csrf_token %}
+              <div class="form-field">
+                {{ threshold_form.low_stock_threshold.label_tag }}
+                <div class="field-with-suffix">
+                  {{ threshold_form.low_stock_threshold }}
+                  <span>{{ inventory.product.get_unit_display }}</span>
+                </div>
+                {% for error in threshold_form.low_stock_threshold.errors %}<p class="form-errors">{{ error }}</p>{% endfor %}
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-secondary">Cập nhật ngưỡng</button>
+              </div>
+            </form>
+          </section>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <section class="workspace-panel inventory-history-panel" aria-labelledby="movement-history-heading">
+      <div class="panel-heading">
+        <div>
+          <h2 id="movement-history-heading">Lịch sử biến động</h2>
+          <p>Các giao dịch được lưu lại để đối soát và truy vết tồn kho.</p>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table class="workspace-table inventory-history-table">
+          <thead>
+            <tr>
+              <th>Thời gian</th>
+              <th>Loại</th>
+              <th>Thay đổi</th>
+              <th>Tồn trước</th>
+              <th>Tồn sau</th>
+              <th>Tham chiếu</th>
+              <th>Người thực hiện</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for movement in movements %}
+              <tr>
+                <td><time datetime="{{ movement.created_at|date:'c' }}">{{ movement.created_at|date:"d/m/Y H:i" }}</time></td>
+                <td>{{ movement.get_movement_type_display }}</td>
+                <td>
+                  <strong class="movement-delta {% if movement.quantity_delta > 0 %}is-positive{% elif movement.quantity_delta < 0 %}is-negative{% endif %}">
+                    {% if movement.quantity_delta > 0 %}+{% endif %}{{ movement.quantity_delta|floatformat:"-3" }}
+                  </strong>
+                </td>
+                <td>{{ movement.balance_before|floatformat:"-3" }}</td>
+                <td><strong>{{ movement.balance_after|floatformat:"-3" }}</strong></td>
+                <td>
+                  {{ movement.reference_code|default:"—" }}
+                  {% if movement.note %}<small class="cell-subtitle">{{ movement.note }}</small>{% endif %}
+                </td>
+                <td>{{ movement.created_by.email|default:"Hệ thống" }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="empty-state">Chưa có giao dịch kho.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if movements.paginator.num_pages > 1 %}
+        <div class="table-footer">
+          <span>Trang {{ movements.number }} / {{ movements.paginator.num_pages }}</span>
+          <nav class="pagination" aria-label="Phân trang lịch sử kho">
+            {% if movements.has_previous %}<a href="?page={{ movements.previous_page_number }}" aria-label="Trang trước">‹</a>{% endif %}
+            <span class="pagination-current">{{ movements.number }}</span>
+            {% if movements.has_next %}<a href="?page={{ movements.next_page_number }}" aria-label="Trang sau">›</a>{% endif %}
+          </nav>
+        </div>
+      {% endif %}
+    </section>
+  </main>
+</div>
+{% endblock %}

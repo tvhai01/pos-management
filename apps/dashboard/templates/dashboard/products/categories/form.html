@@ -1,0 +1,26 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{{ title }} — POS Management System{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:700px;margin:auto">
+  <h1>{{ title }}</h1>
+  <form method="post">
+    {% csrf_token %}
+    {% if category %}
+      <div class="form-row">
+        <label>UUID</label>
+        <p style="font-family:monospace">{{ category.id }}</p>
+      </div>
+    {% endif %}
+    {% for field in form %}
+      <div class="form-row">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<p class="form-errors">{{ field.errors|join:", " }}</p>{% endif %}
+      </div>
+    {% endfor %}
+    <button class="btn" type="submit">Lưu</button>
+    <a class="btn btn-secondary" href="{% url 'dashboard:category-list' %}">Quay lại</a>
+  </form>
+</div>
+{% endblock %}

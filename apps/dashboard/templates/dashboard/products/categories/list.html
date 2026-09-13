@@ -1,0 +1,61 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Danh mục — POS Management System{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="toolbar" style="margin-bottom:1.25rem">
+    <h1 style="margin:0">Danh mục</h1>
+    <div style="margin-left:auto;display:flex;gap:.5rem">
+      <a class="btn btn-secondary" href="{% url 'dashboard:product-list' %}">Sản phẩm</a>
+      {% if can_create %}<a class="btn" href="{% url 'dashboard:category-create' %}">+ Thêm danh mục</a>{% endif %}
+      <a class="btn btn-danger" href="{% url 'dashboard:trash' %}">Thùng rác</a>
+    </div>
+  </div>
+
+  <form class="toolbar" method="get">
+    <input type="text" name="search" placeholder="Tìm tên, mô tả..." value="{{ search }}">
+    <select name="has_products">
+      <option value="">Tất cả danh mục</option>
+      <option value="yes" {% if has_products == "yes" %}selected{% endif %}>Có sản phẩm</option>
+      <option value="no" {% if has_products == "no" %}selected{% endif %}>Danh mục trống</option>
+    </select>
+    <select name="sort">
+      <option value="name_asc" {% if sort == "name_asc" %}selected{% endif %}>Tên A → Z</option>
+      <option value="name_desc" {% if sort == "name_desc" %}selected{% endif %}>Tên Z → A</option>
+      <option value="most_products" {% if sort == "most_products" %}selected{% endif %}>Nhiều sản phẩm nhất</option>
+      <option value="newest" {% if sort == "newest" %}selected{% endif %}>Mới nhất</option>
+    </select>
+    <button class="btn btn-secondary" type="submit">Lọc</button>
+  </form>
+
+  <table>
+    <thead><tr><th>Tên</th><th>Mô tả</th><th>Số sản phẩm</th><th>Người tạo</th><th></th></tr></thead>
+    <tbody>
+      {% for category in categories %}
+        <tr>
+          <td><strong>{{ category.name }}</strong><br><small class="text-muted">{{ category.id }}</small></td>
+          <td>{{ category.description|default:"—" }}</td>
+          <td>{{ category.active_product_count }}</td>
+          <td>{{ category.created_by.email|default:"Hệ thống" }}<br><small>{{ category.created_at|date:"d/m/Y H:i" }}</small></td>
+          <td>
+            {% if can_update %}<a href="{% url 'dashboard:category-update' category.id %}">Sửa</a>{% endif %}
+            {% if can_delete %}
+              <form method="post" action="{% url 'dashboard:category-delete' category.id %}" style="display:inline">
+                {% csrf_token %}<button class="link-button" type="submit">Xóa</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}<tr><td colspan="5" class="text-muted">Không có danh mục phù hợp.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+
+  {% if categories.paginator.num_pages > 1 %}
+    <div class="pagination">
+      {% if categories.has_previous %}<a href="?page={{ categories.previous_page_number }}&search={{ search }}&has_products={{ has_products }}&sort={{ sort }}">« Trước</a>{% endif %}
+      <span>Trang {{ categories.number }}/{{ categories.paginator.num_pages }}</span>
+      {% if categories.has_next %}<a href="?page={{ categories.next_page_number }}&search={{ search }}&has_products={{ has_products }}&sort={{ sort }}">Sau »</a>{% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

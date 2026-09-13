@@ -1,0 +1,137 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Kho hàng — POS Management System{% endblock %}
+{% block page_class %}workspace-page{% endblock %}
+
+{% block content %}
+<div class="workspace-shell">
+  {% include "dashboard/includes/workspace_sidebar.html" %}
+
+  <main class="workspace-content">
+    <section class="workspace-panel workspace-list-panel" aria-labelledby="inventory-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Vận hành kho</p>
+          <h1 id="inventory-heading">Kho hàng</h1>
+          <p class="section-description">{{ inventories.paginator.count }} sản phẩm trong kết quả lọc.</p>
+        </div>
+        {% if can_view_product %}<a class="btn btn-secondary" href="{% url 'dashboard:product-list' %}">Sản phẩm</a>{% endif %}
+      </div>
+
+      <form class="filter-bar" method="get" aria-label="Lọc tồn kho">
+        <label class="search-field">
+          <span class="sr-only">Tìm tồn kho</span>
+          <input type="search" name="search" placeholder="Tìm theo SKU, tên sản phẩm..." value="{{ search }}">
+        </label>
+        <select name="category" aria-label="Danh mục">
+          <option value="">Tất cả danh mục</option>
+          {% for category in categories %}
+            <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+          {% endfor %}
+        </select>
+        <select name="product_status" aria-label="Trạng thái sản phẩm">
+          <option value="">Mọi trạng thái sản phẩm</option>
+          {% for value, label in product_status_choices %}
+            <option value="{{ value }}" {% if product_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <select name="stock_status" aria-label="Trạng thái tồn">
+          <option value="">Mọi trạng thái tồn</option>
+          {% for value, label in stock_status_choices %}
+            <option value="{{ value }}" {% if stock_status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-secondary">Lọc</button>
+      </form>
+
+      <div class="table-scroll">
+        <table class="workspace-table">
+          <thead>
+            <tr>
+              <th>SKU</th><th>Sản phẩm</th><th>Danh mục</th><th>Tồn hiện tại</th>
+              <th>Ngưỡng thấp</th><th>Trạng thái</th><th>Cập nhật</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for inventory in inventories %}
+              <tr class="selectable-row {% if selected_inventory.product_id == inventory.product_id %}is-selected{% endif %}">
+                <td>
+                  <a class="row-select-link" href="?page={{ inventories.number }}&search={{ search|urlencode }}&category={{ selected_category|urlencode }}&product_status={{ product_status|urlencode }}&stock_status={{ stock_status|urlencode }}&selected={{ inventory.product_id }}">
+                    <strong>{{ inventory.product.sku }}</strong>
+                  </a>
+                </td>
+                <td>
+                  <a class="product-name row-select-link" href="?page={{ inventories.number }}&search={{ search|urlencode }}&category={{ selected_category|urlencode }}&product_status={{ product_status|urlencode }}&stock_status={{ stock_status|urlencode }}&selected={{ inventory.product_id }}">{{ inventory.product.name }}</a>
+                  <small class="cell-subtitle">Đơn vị: {{ inventory.product.get_unit_display }}</small>
+                </td>
+                <td>{{ inventory.product.category.name|default:"—" }}</td>
+                <td><strong>{{ inventory.quantity|floatformat:"-3" }}</strong> {{ inventory.product.get_unit_display }}</td>
+                <td>{{ inventory.low_stock_threshold|floatformat:"-3" }} {{ inventory.product.get_unit_display }}</td>
+                <td>
+                  {% if inventory.stock_status == "out_of_stock" %}
+                    <span class="status-pill status-out">Hết hàng</span>
+                  {% elif inventory.stock_status == "low_stock" %}
+                    <span class="status-pill status-low">Sắp hết</span>
+                  {% else %}
+                    <span class="status-pill status-stocked">Đủ hàng</span>
+                  {% endif %}
+                </td>
+                <td><span>{{ inventory.updated_at|date:"d/m/Y" }}</span><small class="cell-subtitle">{{ inventory.updated_at|date:"H:i" }}</small></td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="empty-state">Không có tồn kho phù hợp.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-footer">
+        <span>Hiển thị {{ inventories.start_index }}–{{ inventories.end_index }} của {{ inventories.paginator.count }} sản phẩm</span>
+        {% if inventories.paginator.num_pages > 1 %}
+          <nav class="pagination" aria-label="Phân trang kho hàng">
+            {% if inventories.has_previous %}<a href="?page={{ inventories.previous_page_number }}&search={{ search|urlencode }}&category={{ selected_category|urlencode }}&product_status={{ product_status|urlencode }}&stock_status={{ stock_status|urlencode }}">‹</a>{% endif %}
+            <span class="pagination-current">{{ inventories.number }}</span>
+            {% if inventories.has_next %}<a href="?page={{ inventories.next_page_number }}&search={{ search|urlencode }}&category={{ selected_category|urlencode }}&product_status={{ product_status|urlencode }}&stock_status={{ stock_status|urlencode }}">›</a>{% endif %}
+          </nav>
+        {% endif %}
+      </div>
+    </section>
+
+    <aside class="workspace-panel inspector-panel" aria-labelledby="inventory-inspector-heading">
+      <h2 id="inventory-inspector-heading">Chi tiết tồn kho</h2>
+      {% if selected_inventory %}
+        <div class="inspector-product">
+          {% if selected_inventory.product.image %}<img class="product-thumb product-thumb-large" src="{{ selected_inventory.product.image.url }}" alt="{{ selected_inventory.product.name }}">{% endif %}
+          <div><strong>{{ selected_inventory.product.name }}</strong><small>SKU: {{ selected_inventory.product.sku }}</small><small>Đơn vị tính: {{ selected_inventory.product.get_unit_display }}</small></div>
+        </div>
+        <dl class="detail-list detail-list-compact">
+          <div><dt>Tồn hiện tại</dt><dd>{{ selected_inventory.quantity|floatformat:"-3" }} {{ selected_inventory.product.get_unit_display }}</dd></div>
+          <div><dt>Ngưỡng thấp</dt><dd>{{ selected_inventory.low_stock_threshold|floatformat:"-3" }} {{ selected_inventory.product.get_unit_display }}</dd></div>
+          <div><dt>Trạng thái</dt><dd>
+            {% if selected_inventory.stock_status == "out_of_stock" %}<span class="status-pill status-out">Hết hàng</span>
+            {% elif selected_inventory.stock_status == "low_stock" %}<span class="status-pill status-low">Sắp hết</span>
+            {% else %}<span class="status-pill status-stocked">Đủ hàng</span>{% endif %}
+          </dd></div>
+          <div><dt>Cập nhật bởi</dt><dd>{{ selected_inventory.updated_by.email|default:"Hệ thống" }}</dd></div>
+          <div><dt>Cập nhật lúc</dt><dd>{{ selected_inventory.updated_at|date:"d/m/Y H:i" }}</dd></div>
+        </dl>
+        <a class="btn btn-block btn-secondary" href="{% url 'dashboard:inventory-detail' selected_inventory.product_id %}">{% if can_create_movement %}Mở chi tiết kho{% else %}Xem lịch sử kho{% endif %}</a>
+
+        <div class="movement-preview">
+          <h3>Lịch sử biến động gần đây</h3>
+          {% for movement in recent_movements %}
+            <div class="movement-row">
+              <time>{{ movement.created_at|date:"d/m/Y H:i" }}</time>
+              <span>{{ movement.get_movement_type_display }}</span>
+              <strong>{% if movement.quantity_delta > 0 %}+{% endif %}{{ movement.quantity_delta|floatformat:"-3" }}</strong>
+            </div>
+          {% empty %}
+            <p class="text-muted">Chưa có giao dịch kho.</p>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="empty-state">Chọn một sản phẩm để xem tồn kho.</p>
+      {% endif %}
+    </aside>
+  </main>
+</div>
+{% endblock %}

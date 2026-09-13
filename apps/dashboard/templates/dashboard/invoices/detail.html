@@ -1,0 +1,16 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{{ invoice.invoice_number }}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{{ invoice.invoice_number }}</h1>
+  <p>Khách hàng: {{ invoice.customer.full_name }}</p>
+  <p>Tổng: <strong>{{ invoice.total_amount|floatformat:2 }} {{ invoice.currency }}</strong> | Đã trả: {{ paid_amount|floatformat:2 }} | Còn lại: {{ remaining_amount|floatformat:2 }}</p>
+  <p>Trạng thái hóa đơn: <strong>{{ invoice.status }}</strong></p>
+  {% if invoice.status == "DRAFT" %}<form method="post" action="{% url 'dashboard:invoice-pending' invoice.id %}">{% csrf_token %}<button class="btn" type="submit">Chuyển sang chờ thanh toán</button></form>{% endif %}
+  {% if invoice.status == "PENDING_PAYMENT" %}
+    <form method="post" action="{% url 'dashboard:invoice-qr' invoice.id %}">{% csrf_token %}<button class="btn" type="submit">Thanh toán QR</button></form>
+    <form method="post" action="{% url 'dashboard:invoice-manual' invoice.id %}">{% csrf_token %}<input name="amount" placeholder="Số tiền" required><input name="reference" placeholder="Mã tham chiếu"><input name="note" placeholder="Ghi chú"><button class="btn" type="submit">Thanh toán thủ công</button></form>
+  {% endif %}
+</div>
+<div class="card"><h2>Lịch sử thanh toán</h2><table><thead><tr><th>Thời gian</th><th>Provider</th><th>Số tiền</th><th>Trạng thái</th><th>Nội dung</th></tr></thead><tbody>{% for transaction in transactions %}<tr><td>{{ transaction.created_at }}</td><td>{{ transaction.provider }}</td><td>{{ transaction.amount }} {{ transaction.currency }}</td><td>{{ transaction.status }}</td><td>{{ transaction.transaction_content }}</td></tr>{% empty %}<tr><td colspan="5">Chưa có giao dịch.</td></tr>{% endfor %}</tbody></table></div>
+{% endblock %}

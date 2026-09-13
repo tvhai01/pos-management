@@ -1,0 +1,5 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Tạo đơn hàng{% endblock %}
+{% block content %}
+<div class="card"><h1>Tạo đơn hàng</h1><form method="post">{% csrf_token %}<label>Khách hàng<select name="customer_id" required>{% for customer in customers %}<option value="{{ customer.id }}">{{ customer.full_name }} — {{ customer.phone }}</option>{% endfor %}</select></label><div id="items"><div class="order-row"><select name="product_id" required>{% for product in products %}<option value="{{ product.id }}">{{ product.name }} — {{ product.sku }} — {{ product.selling_price }} VND</option>{% endfor %}</select><input name="quantity" type="number" min="0.001" step="0.001" value="1" required></div></div><button class="btn" type="button" onclick="addRow()">+ Thêm sản phẩm</button><button class="btn" type="submit">Tạo đơn hàng</button></form></div><script>function addRow(){const row=document.querySelector('.order-row').cloneNode(true);document.getElementById('items').appendChild(row);}</script>
+{% endblock %}

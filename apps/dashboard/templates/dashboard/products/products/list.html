@@ -1,0 +1,137 @@
+{% extends "dashboard/base.html" %}
+{% load humanize %}
+{% block title %}Sản phẩm — POS Management System{% endblock %}
+{% block page_class %}workspace-page{% endblock %}
+
+{% block content %}
+<div class="workspace-shell">
+  {% include "dashboard/includes/workspace_sidebar.html" %}
+
+  <main class="workspace-content">
+    <section class="workspace-panel workspace-list-panel" aria-labelledby="product-heading">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Danh mục hàng hóa</p>
+          <h1 id="product-heading">Sản phẩm</h1>
+          <p class="section-description">Quản lý danh mục, thông tin và giá bán.</p>
+        </div>
+        <div class="section-actions">
+          <a class="btn btn-secondary" href="{% url 'dashboard:category-list' %}">Danh mục</a>
+          {% if can_create %}<a class="btn" href="{% url 'dashboard:product-create' %}">+ Thêm sản phẩm</a>{% endif %}
+          <a class="btn btn-quiet" href="{% url 'dashboard:trash' %}">Thùng rác</a>
+        </div>
+      </div>
+
+      <form class="filter-bar" method="get" aria-label="Lọc sản phẩm">
+        <label class="search-field">
+          <span class="sr-only">Tìm sản phẩm</span>
+          <input type="search" name="search" placeholder="Tìm theo SKU, tên sản phẩm..." value="{{ search }}">
+        </label>
+        <select name="category" aria-label="Danh mục">
+          <option value="">Tất cả danh mục</option>
+          {% for category in categories %}
+            <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.name }}</option>
+          {% endfor %}
+        </select>
+        <select name="status" aria-label="Trạng thái">
+          <option value="">Tất cả trạng thái</option>
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <select name="sort" aria-label="Sắp xếp">
+          <option value="">Mới nhất</option>
+          <option value="name_asc" {% if sort == "name_asc" %}selected{% endif %}>Tên A → Z</option>
+          <option value="name_desc" {% if sort == "name_desc" %}selected{% endif %}>Tên Z → A</option>
+          <option value="price_asc" {% if sort == "price_asc" %}selected{% endif %}>Giá tăng dần</option>
+          <option value="price_desc" {% if sort == "price_desc" %}selected{% endif %}>Giá giảm dần</option>
+        </select>
+        <button type="submit" class="btn btn-secondary">Lọc</button>
+      </form>
+
+      <div class="table-scroll">
+        <table class="workspace-table">
+          <thead>
+            <tr>
+              <th>SKU</th><th>Ảnh</th><th>Tên sản phẩm</th><th>Danh mục</th>
+              <th>Giá bán</th><th>Trạng thái</th><th>Cập nhật</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in products %}
+              <tr class="selectable-row {% if selected_product.id == product.id %}is-selected{% endif %}">
+                <td>
+                  <a class="row-select-link" href="?page={{ products.number }}&search={{ search|urlencode }}&category={{ selected_category|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&selected={{ product.id }}">
+                    <strong>{{ product.sku }}</strong>
+                  </a>
+                </td>
+                <td>
+                  {% if product.image %}
+                    <img class="product-thumb" src="{{ product.image.url }}" alt="{{ product.name }}">
+                  {% else %}
+                    <span class="image-empty">Không ảnh</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a class="product-name row-select-link" href="?page={{ products.number }}&search={{ search|urlencode }}&category={{ selected_category|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}&selected={{ product.id }}">{{ product.name }}</a>
+                  <small class="cell-subtitle">{{ product.description|truncatechars:42|default:"Chưa có mô tả" }}</small>
+                </td>
+                <td>{{ product.category.name|default:"—" }}</td>
+                <td><strong>{{ product.selling_price|floatformat:0|intcomma }}đ</strong></td>
+                <td><span class="status-pill status-product-{{ product.status }}">{{ product.get_status_display }}</span></td>
+                <td><span>{{ product.updated_at|date:"d/m/Y" }}</span><small class="cell-subtitle">{{ product.updated_at|date:"H:i" }}</small></td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="empty-state">Không có sản phẩm phù hợp.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="table-footer">
+        <span>Hiển thị {{ products.start_index }}–{{ products.end_index }} của {{ products.paginator.count }} sản phẩm</span>
+        {% if products.paginator.num_pages > 1 %}
+          <nav class="pagination" aria-label="Phân trang sản phẩm">
+            {% if products.has_previous %}<a href="?page={{ products.previous_page_number }}&search={{ search|urlencode }}&category={{ selected_category|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}">‹</a>{% endif %}
+            <span class="pagination-current">{{ products.number }}</span>
+            {% if products.has_next %}<a href="?page={{ products.next_page_number }}&search={{ search|urlencode }}&category={{ selected_category|urlencode }}&status={{ status|urlencode }}&sort={{ sort|urlencode }}">›</a>{% endif %}
+          </nav>
+        {% endif %}
+      </div>
+    </section>
+
+    <aside class="workspace-panel inspector-panel" aria-labelledby="product-inspector-heading">
+      <h2 id="product-inspector-heading">Thông tin sản phẩm</h2>
+      {% if selected_product %}
+        {% if selected_product.image %}
+          <div class="inspector-image-wrap"><img src="{{ selected_product.image.url }}" alt="{{ selected_product.name }}"></div>
+        {% else %}
+          <p class="inspector-no-image">Sản phẩm chưa có hình ảnh</p>
+        {% endif %}
+        <dl class="detail-list">
+          <div><dt>SKU</dt><dd>{{ selected_product.sku }}</dd></div>
+          <div><dt>Tên sản phẩm</dt><dd>{{ selected_product.name }}</dd></div>
+          <div><dt>Mô tả</dt><dd>{{ selected_product.description|default:"Chưa có mô tả"|truncatechars:180 }}</dd></div>
+          <div><dt>Danh mục</dt><dd>{{ selected_product.category.name|default:"—" }}</dd></div>
+          <div><dt>Đơn vị tính</dt><dd>{{ selected_product.get_unit_display }}</dd></div>
+          <div><dt>Giá nhập</dt><dd>{{ selected_product.cost_price|floatformat:0|intcomma }}đ</dd></div>
+          <div><dt>Giá bán</dt><dd>{{ selected_product.selling_price|floatformat:0|intcomma }}đ</dd></div>
+          <div><dt>Trạng thái</dt><dd>{{ selected_product.get_status_display }}</dd></div>
+          <div><dt>Cập nhật bởi</dt><dd>{{ selected_product.updated_by.email|default:"Hệ thống" }}</dd></div>
+          <div><dt>Cập nhật lúc</dt><dd>{{ selected_product.updated_at|date:"d/m/Y H:i" }}</dd></div>
+        </dl>
+        <div class="inspector-actions">
+          {% if can_update %}<a class="btn" href="{% url 'dashboard:product-update' selected_product.id %}">Chỉnh sửa</a>{% endif %}
+          {% if can_delete %}
+            <form method="post" action="{% url 'dashboard:product-delete' selected_product.id %}">
+              {% csrf_token %}<button type="submit" class="btn btn-quiet">Xóa</button>
+            </form>
+          {% endif %}
+        </div>
+      {% else %}
+        <p class="empty-state">Chọn một sản phẩm để xem thông tin.</p>
+      {% endif %}
+    </aside>
+  </main>
+</div>
+{% endblock %}

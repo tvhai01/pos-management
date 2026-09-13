@@ -1,0 +1,17 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Xoá khách hàng — POS Management System{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Xoá khách hàng?</h1>
+  <p>
+    Bạn có chắc muốn xoá khách hàng
+    <strong>{{ customer.customer_code }} — {{ customer.full_name }}</strong>?
+    Đây là xoá mềm — dữ liệu vẫn được lưu trữ, chỉ ẩn khỏi danh sách.
+  </p>
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Xác nhận xoá</button>
+    <a class="btn btn-secondary" href="{% url 'dashboard:customer-list' %}">Huỷ</a>
+  </form>
+</div>
+{% endblock %}

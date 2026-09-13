@@ -1,0 +1,40 @@
+{% extends "dashboard/base.html" %}
+{% block title %}{% if is_edit %}Sửa nhân viên{% else %}Thêm nhân viên{% endif %} — POS Management System{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{% if is_edit %}Sửa nhân viên — {{ staff_user.full_name }}{% else %}Thêm nhân viên{% endif %}</h1>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-error">
+      {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      {% if field.name != "roles" %}
+        <div class="form-row">
+          <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<p class="text-muted">{{ field.help_text }}</p>{% endif %}
+          {% if field.errors %}<p class="form-errors">{{ field.errors|join:", " }}</p>{% endif %}
+        </div>
+      {% endif %}
+    {% endfor %}
+
+    <div class="form-row">
+      <label>{{ form.roles.label }}</label>
+      {{ form.roles }}
+      {% if form.roles.errors %}<p class="form-errors">{{ form.roles.errors|join:", " }}</p>{% endif %}
+      <p class="text-muted">
+        Chưa thấy vai trò cần gán?
+        <a href="{% url 'dashboard:role-create' %}">+ Tạo vai trò mới</a>
+      </p>
+    </div>
+
+    <button type="submit" class="btn">{% if is_edit %}Lưu thay đổi{% else %}Tạo nhân viên{% endif %}</button>
+    <a class="btn btn-secondary" href="{% url 'dashboard:staff-list' %}">Huỷ</a>
+  </form>
+</div>
+{% endblock %}

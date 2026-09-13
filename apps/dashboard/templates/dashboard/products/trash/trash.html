@@ -1,0 +1,43 @@
+{% extends "dashboard/base.html" %}
+{% load humanize %}
+{% block title %}Thùng rác sản phẩm — POS Management System{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="toolbar">
+    <h1>Thùng rác sản phẩm</h1>
+    <div style="margin-left:auto;display:flex;gap:.5rem">
+      <a class="btn btn-secondary" href="{% url 'dashboard:category-list' %}">Danh mục</a>
+      <a class="btn" href="{% url 'dashboard:product-list' %}">Sản phẩm</a>
+    </div>
+  </div>
+
+  <h2>Danh mục đã xóa</h2>
+  <table>
+    <thead><tr><th>Tên</th><th>Mô tả</th><th>Thời gian xóa</th><th></th></tr></thead>
+    <tbody>
+      {% for category in categories %}
+        <tr>
+          <td>{{ category.name }}</td><td>{{ category.description|default:"—" }}</td><td>{{ category.deleted_at|date:"d/m/Y H:i" }}</td>
+          <td>{% if can_restore_category %}<form method="post" action="{% url 'dashboard:category-restore' category.id %}">{% csrf_token %}<button class="btn" type="submit">Khôi phục</button></form>{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="4" class="text-muted">Không có danh mục đã xóa.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+
+  <h2 style="margin-top:2rem">Sản phẩm đã xóa</h2>
+  <table>
+    <thead><tr><th>SKU</th><th>Tên</th><th>Danh mục</th><th>Giá bán</th><th>Thời gian xóa</th><th></th></tr></thead>
+    <tbody>
+      {% for product in products %}
+        <tr>
+          <td>{{ product.sku }}</td><td>{{ product.name }}</td><td>{{ product.category.name|default:"—" }}</td><td>{{ product.selling_price|floatformat:0|intcomma }}đ</td><td>{{ product.deleted_at|date:"d/m/Y H:i" }}</td>
+          <td>{% if can_restore_product %}<form method="post" action="{% url 'dashboard:product-restore' product.id %}">{% csrf_token %}<button class="btn" type="submit">Khôi phục</button></form>{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="6" class="text-muted">Không có sản phẩm đã xóa.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+
+  <p class="text-muted" style="margin-top:1rem">Dữ liệu đã xóa mềm được giữ lại để bảo toàn lịch sử kho, đơn hàng và hóa đơn.</p>
+</div>
+{% endblock %}
