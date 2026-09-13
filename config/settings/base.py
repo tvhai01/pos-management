@@ -287,14 +287,18 @@ CORS_ALLOW_CREDENTIALS: bool = True
 SEPAY_ENV: str = config("SEPAY_ENV", default="sandbox")
 SEPAY_MERCHANT_ID: str = config("SEPAY_MERCHANT_ID", default="")
 SEPAY_SECRET_KEY: str = config("SEPAY_SECRET_KEY", default="")
-SEPAY_CHECKOUT_URL: str = config(
-    "SEPAY_CHECKOUT_URL",
-    default="https://pay-sandbox.sepay.vn/v1/checkout/init",
+SEPAY_KEY: str = config("SEPAY_KEY", default="")
+SEPAY_WEBHOOK_SECRET: str = config(
+    "SEPAY_WEBHOOK_SECRET", default=SEPAY_SECRET_KEY
 )
+SEPAY_BANK_ACCOUNT_XID: str = config("SEPAY_BANK_ACCOUNT_XID", default="")
 SEPAY_API_URL: str = config(
     "SEPAY_API_URL",
-    default="https://pgapi-sandbox.sepay.vn",
+    default="https://userapi-sandbox.sepay.vn/v2",
 )
+VIETQR_BANK_ID: str = config("VIETQR_BANK_ID", default="VCB")
+VIETQR_ACCOUNT_NUMBER: str = config("VIETQR_ACCOUNT_NUMBER", default="")
+VIETQR_ACCOUNT_NAME: str = config("VIETQR_ACCOUNT_NAME", default="")
 
 # =============================================================================
 # Application Version

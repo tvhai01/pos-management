@@ -9,6 +9,7 @@ equivalent of DRF's `HasPermission`), plus Django's own `authenticate`/
 of `AuthService.login` issuing JWTs).
 """
 
+import logging
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 from uuid import UUID
@@ -19,6 +20,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import User
@@ -61,6 +63,8 @@ from apps.product.exceptions import (
 )
 from apps.product.selectors import CategorySelector, ProductSelector
 from apps.product.services import CategoryService, ProductService
+
+logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Auth
@@ -768,11 +772,27 @@ def invoice_pending(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
 @require_permission("create", "payment")
 def invoice_qr(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
     try:
-        _, checkout = PaymentService.create_qr_payment(invoice_id, created_by=_authenticated_user(request))
-        request.session["checkout"] = checkout
-        messages.success(request, "Đã tạo phiên thanh toán QR.")
-    except (Invoice.DoesNotExist, ValueError):
-        messages.error(request, "Không thể tạo thanh toán QR.")
+        invoice = InvoiceSelector.get_by_id(invoice_id)
+        if invoice is None:
+            raise Invoice.DoesNotExist
+        return_url = request.build_absolute_uri(
+            reverse("dashboard:invoice-detail", kwargs={"invoice_id": invoice_id})
+        )
+        _, checkout = PaymentService.create_qr_payment(
+            invoice_id,
+            created_by=_authenticated_user(request),
+            return_url=return_url,
+        )
+        return render(
+            request,
+            "dashboard/invoices/checkout.html",
+            {"checkout": checkout, "invoice": invoice},
+        )
+    except (Invoice.DoesNotExist, ValueError) as exc:
+        messages.error(request, f"Không thể tạo thanh toán QR: {exc}")
+    except Exception:
+        logger.exception("dashboard.invoice_qr_failed invoice=%s", invoice_id)
+        messages.error(request, "Không thể tạo thanh toán QR. Vui lòng thử lại.")
     return redirect("dashboard:invoice-detail", invoice_id=invoice_id)
 
 

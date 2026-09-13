@@ -1,0 +1,20 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Thanh toán QR{% endblock %}
+{% block content %}
+<section class="checkout-page">
+  <div class="checkout-card">
+    <span class="checkout-kicker">THANH TOÁN SEPAY</span>
+    <h1>Quét mã để thanh toán</h1>
+    <p>Hóa đơn {{ invoice.invoice_number }}</p>
+    {% if checkout.qr_url %}
+      <img class="sepay-qr" src="{{ checkout.qr_url }}" alt="Mã QR thanh toán SePay">
+    {% endif %}
+    {% if checkout.checkout_url %}
+      <a class="btn" href="{{ checkout.checkout_url }}" target="_blank" rel="noopener">Mở trang thanh toán</a>
+    {% elif not checkout.qr_url %}
+      <p class="checkout-error">SePay chưa trả về mã QR cho order này.</p>
+    {% endif %}
+    <a class="checkout-back" href="{% url 'dashboard:invoice-detail' invoice.id %}">Quay lại hóa đơn</a>
+  </div>
+</section>
+{% endblock %}

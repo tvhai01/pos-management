@@ -6,14 +6,30 @@ Put sandbox values in the local `.env` file. The file is ignored by git.
 
 ```dotenv
 SEPAY_ENV=sandbox
-SEPAY_MERCHANT_ID=
-SEPAY_SECRET_KEY=
-SEPAY_CHECKOUT_URL=https://pay-sandbox.sepay.vn/v1/checkout/init
-SEPAY_API_URL=https://pgapi-sandbox.sepay.vn
+SEPAY_KEY=
+SEPAY_WEBHOOK_SECRET=
+SEPAY_API_URL=https://userapi-sandbox.sepay.vn/v2
+VIETQR_BANK_ID=VCB
+VIETQR_ACCOUNT_NUMBER=
+VIETQR_ACCOUNT_NAME=
 ```
 
-The secret is used only by `apps.payments.sepay.SePayService`; it is never
-serialized to the API or dashboard.
+The v2 API uses `SEPAY_KEY` as a Bearer token in the `Authorization` header.
+`SEPAY_WEBHOOK_SECRET` is only for verifying callbacks and is never sent to
+the SePay API or dashboard.
+
+QR codes are generated locally with VietQR. The QR contains the receiving bank
+account, amount, and payment reference; no SePay payment-gateway order is
+created. SePay is used to receive and verify the resulting bank transaction
+through the webhook.
+
+SePay transaction requests use the configured v2 base URL directly:
+
+```bash
+curl --location "$SEPAY_API_URL/transactions" \
+	--header "Authorization: Bearer $SEPAY_KEY" \
+	--header "Accept: application/json"
+```
 
 ## Database
 
@@ -64,6 +80,12 @@ The dashboard exposes the same workflow under `/orders/` and `/invoices/` with
 session auth. Product selectors on the order form are populated from the
 existing Product queryset; no Product records are created by this flow.
 
+For Bank Hub Sandbox, configure `SEPAY_BANK_ACCOUNT_XID` with the sandbox
+account XID. The webhook endpoint is `/api/v1/payments/sepay/webhook/` and
+accepts `transaction_content` (or `content`), `amount_in`/`amount`,
+`transfer_type=credit`, `bank_account_xid`, and a provider transaction ID.
+It only marks an invoice paid after all matching checks pass.
+
 ## Flow
 
 An invoice is created as `DRAFT`, moved to `PENDING_PAYMENT`, and can then
@@ -74,7 +96,7 @@ records instead of overwriting transaction rows.
 
 ## Sandbox checklist
 
-1. Configure the four SePay sandbox environment variables.
+1. Configure the SePay sandbox environment variables.
 2. Create an invoice and transition it to `PENDING_PAYMENT`.
 3. Create a QR payment and verify the checkout fields contain no secret.
 4. Send a signed sandbox callback and verify the transaction, payment, and invoice.

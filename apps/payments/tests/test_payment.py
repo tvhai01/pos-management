@@ -31,8 +31,13 @@ def pending_invoice(create_user):
 
 
 @pytest.mark.django_db
-@override_settings(SEPAY_SECRET_KEY="test-secret", SEPAY_MERCHANT_ID="sandbox-merchant")
-def test_qr_payment_and_duplicate_webhook(pending_invoice, create_user):
+@override_settings(SEPAY_WEBHOOK_SECRET="test-webhook-secret", SEPAY_KEY="test-api-key")
+def test_qr_payment_and_duplicate_webhook(pending_invoice, create_user, monkeypatch):
+    monkeypatch.setattr(
+        SePayService,
+        "create_checkout",
+        lambda *args, **kwargs: {"checkout_url": "", "qr_url": "", "qr_code": ""},
+    )
     payment, _ = PaymentService.create_qr_payment(pending_invoice.id, created_by=create_user)
     payload = {"order_invoice_number": payment.reference, "transaction_id": "tx-001", "amount": "500000", "currency": "VND", "status": PaymentStatus.SUCCESS}
     signature = SePayService.signature(payload)
@@ -42,6 +47,35 @@ def test_qr_payment_and_duplicate_webhook(pending_invoice, create_user):
     assert payment.status == PaymentStatus.SUCCESS
     assert PaymentTransaction.objects.filter(provider_transaction_id="tx-001").count() == 1
     assert pending_invoice.__class__.objects.get(id=pending_invoice.id).status == InvoiceStatus.PAID
+
+
+@pytest.mark.django_db
+@override_settings(
+    SEPAY_WEBHOOK_SECRET="test-webhook-secret",
+    SEPAY_BANK_ACCOUNT_XID="SBSEPAYXPIMWGG2CHT7",
+)
+def test_bankhub_webhook_matches_invoice_content(pending_invoice, create_user):
+    payment, _ = PaymentService.create_qr_payment(
+        pending_invoice.id, created_by=create_user
+    )
+    payload = {
+        "bank_account_xid": "SBSEPAYXPIMWGG2CHT7",
+        "transfer_type": "credit",
+        "amount_in": "500000",
+        "transaction_content": pending_invoice.invoice_number,
+        "transaction_id": "bankhub-tx-001",
+        "currency": "VND",
+        "status": PaymentStatus.SUCCESS,
+    }
+    signature = SePayService.signature(payload)
+
+    transaction = PaymentService.process_webhook(payload, signature)
+
+    payment.refresh_from_db()
+    pending_invoice.refresh_from_db()
+    assert transaction.transaction_content == pending_invoice.invoice_number
+    assert payment.status == PaymentStatus.SUCCESS
+    assert pending_invoice.status == InvoiceStatus.PAID
 
 
 @pytest.mark.django_db
