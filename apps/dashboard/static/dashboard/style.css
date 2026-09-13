@@ -247,6 +247,52 @@ a:hover {
   text-align: center;
 }
 
+.checkout-page {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 60vh;
+}
+.checkout-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(31, 36, 48, 0.06);
+  max-width: 32rem;
+  padding: 2.25rem;
+  text-align: center;
+  width: 100%;
+}
+.checkout-kicker {
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.checkout-card h1 {
+  margin: 0.5rem 0;
+}
+.checkout-card p {
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 1.25rem;
+}
+.sepay-qr {
+  display: block;
+  height: 240px;
+  margin: 1.25rem auto;
+  object-fit: contain;
+  width: 240px;
+}
+.checkout-error {
+  color: var(--danger) !important;
+}
+.checkout-back {
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 1rem;
+}
+
 @media (max-width: 640px) {
   .order-hero {
     flex-direction: column;
