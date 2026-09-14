@@ -33,7 +33,7 @@ urlpatterns: list = [
 ]
 
 # Debug Toolbar — only in development
-if settings.DEBUG:
+if settings.DEBUG and not getattr(settings, "DEMO_MODE", False):
     import debug_toolbar
 
     urlpatterns = [

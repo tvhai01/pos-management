@@ -118,9 +118,19 @@ urlpatterns: list = [
         name="report-revenue-export",
     ),
     path(
+        "reports/revenue/insights/",
+        views.report_revenue_insights,
+        name="report-revenue-insights",
+    ),
+    path(
         "reports/products/top-selling/export/",
         views.report_top_selling_export,
         name="report-top-selling-export",
+    ),
+    path(
+        "reports/products/top-selling/insights/",
+        views.report_top_selling_insights,
+        name="report-top-selling-insights",
     ),
     path(
         "reports/inventory/export/",
@@ -128,13 +138,28 @@ urlpatterns: list = [
         name="report-inventory-export",
     ),
     path(
+        "reports/inventory/insights/",
+        views.report_inventory_insights,
+        name="report-inventory-insights",
+    ),
+    path(
         "reports/payments/breakdown/export/",
         views.report_payment_breakdown_export,
         name="report-payment-breakdown-export",
     ),
     path(
+        "reports/payments/breakdown/insights/",
+        views.report_payment_breakdown_insights,
+        name="report-payment-breakdown-insights",
+    ),
+    path(
         "reports/customers/export/",
         views.report_customers_export,
         name="report-customers-export",
+    ),
+    path(
+        "reports/customers/insights/",
+        views.report_customers_insights,
+        name="report-customers-insights",
     ),
 ]

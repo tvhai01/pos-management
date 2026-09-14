@@ -18,7 +18,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -69,7 +69,9 @@ from apps.product.exceptions import (
 from apps.product.selectors import CategorySelector, ProductSelector
 from apps.product.services import CategoryService, ProductService
 from apps.reports import exports as report_exports
+from apps.reports.constants import ReportType
 from apps.reports.selectors import ReportSelector
+from apps.reports.services import ReportInsightService
 
 logger = logging.getLogger(__name__)
 
@@ -1492,3 +1494,90 @@ def report_customers_export(request: HttpRequest) -> HttpResponse:
     header, rows = report_exports.customer_report_csv(data)
     return report_exports.build_csv_response("bao_cao_khach_hang.csv", header, rows)
     return redirect("dashboard:invoice-list")
+
+
+def _insight_response(
+    request: HttpRequest, report_type: str, data: Any, cache_key_params: dict[str, Any]
+) -> HttpResponse:
+    """Shared tail for every `report_*_insights` view below."""
+    insight = ReportInsightService.generate(report_type, data, cache_key_params)
+    return JsonResponse(insight)
+
+
+@require_permission("view", "report")
+def report_revenue_insights(request: HttpRequest) -> HttpResponse:
+    """GET /reports/revenue/insights/ — called by the "Phân tích AI" button."""
+    form = _report_filter(request)
+    if not form.is_valid():
+        return JsonResponse({"error": "invalid_date_range"}, status=400)
+    date_from = form.cleaned_data["date_from"]
+    date_to = form.cleaned_data["date_to"]
+    data = ReportSelector.get_revenue_report(date_from, date_to)
+    return _insight_response(
+        request, ReportType.REVENUE, data, {"date_from": date_from, "date_to": date_to}
+    )
+
+
+@require_permission("view", "report")
+def report_top_selling_insights(request: HttpRequest) -> HttpResponse:
+    """GET /reports/products/top-selling/insights/"""
+    form = _report_filter(request)
+    if not form.is_valid():
+        return JsonResponse({"error": "invalid_date_range"}, status=400)
+    params = {
+        "date_from": form.cleaned_data["date_from"],
+        "date_to": form.cleaned_data["date_to"],
+        "top_n": form.cleaned_data["top_n"],
+        "sort_by": form.cleaned_data["sort_by"],
+    }
+    data = ReportSelector.get_top_selling_products(**params)
+    return _insight_response(request, ReportType.TOP_SELLING_PRODUCTS, data, params)
+
+
+@require_permission("view", "report")
+def report_inventory_insights(request: HttpRequest) -> HttpResponse:
+    """GET /reports/inventory/insights/"""
+    form = _report_filter(request)
+    if not form.is_valid():
+        return JsonResponse({"error": "invalid_date_range"}, status=400)
+    date_from = form.cleaned_data["date_from"]
+    date_to = form.cleaned_data["date_to"]
+    data = ReportSelector.get_inventory_report(date_from, date_to)
+    return _insight_response(
+        request,
+        ReportType.INVENTORY,
+        data,
+        {"date_from": date_from, "date_to": date_to},
+    )
+
+
+@require_permission("view", "report")
+def report_payment_breakdown_insights(request: HttpRequest) -> HttpResponse:
+    """GET /reports/payments/breakdown/insights/"""
+    form = _report_filter(request)
+    if not form.is_valid():
+        return JsonResponse({"error": "invalid_date_range"}, status=400)
+    date_from = form.cleaned_data["date_from"]
+    date_to = form.cleaned_data["date_to"]
+    data = ReportSelector.get_payment_breakdown(date_from, date_to)
+    return _insight_response(
+        request,
+        ReportType.PAYMENT_BREAKDOWN,
+        data,
+        {"date_from": date_from, "date_to": date_to},
+    )
+
+
+@require_permission("view", "report")
+def report_customers_insights(request: HttpRequest) -> HttpResponse:
+    """GET /reports/customers/insights/"""
+    form = _report_filter(request)
+    if not form.is_valid():
+        return JsonResponse({"error": "invalid_date_range"}, status=400)
+    params = {
+        "date_from": form.cleaned_data["date_from"],
+        "date_to": form.cleaned_data["date_to"],
+        "top_n": form.cleaned_data["top_n"],
+    }
+    data = ReportSelector.get_customer_report(**params)
+    return _insight_response(request, ReportType.CUSTOMER, data, params)
