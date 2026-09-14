@@ -278,7 +278,10 @@ CORS_ALLOWED_ORIGINS: list[str] = config(
     default="http://localhost:3000",
     cast=Csv(),
 )
-
+CSRF_TRUSTED_ORIGINS = env.list(
+    "CSRF_TRUSTED_ORIGINS",
+    default=["https://pos.dyca.vn"],
+)
 CORS_ALLOW_CREDENTIALS: bool = True
 
 # =============================================================================
