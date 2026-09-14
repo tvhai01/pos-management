@@ -291,7 +291,11 @@ class PaymentService:
         if target_status not in PaymentStatus.values:
             raise ValueError("Invalid payment status.")
         now = timezone.now()
-        ledger = PaymentTransaction.objects.create(payment=payment, invoice=payment.invoice, provider=Provider.SEPAY, provider_transaction_id=transaction_id or None, provider_reference=reference, transaction_type=TransactionType.PAYMENT, amount=amount, currency=currency, status=target_status, payment_method=payment.payment_method, transaction_content=content, raw_response=payload, processed_at=now, created_by=payment.created_by, updated_by=payment.updated_by)
+        raw_response = {
+            key: str(value) if isinstance(value, Decimal) else value
+            for key, value in payload.items()
+        }
+        ledger = PaymentTransaction.objects.create(payment=payment, invoice=payment.invoice, provider=Provider.SEPAY, provider_transaction_id=transaction_id or None, provider_reference=reference, transaction_type=TransactionType.PAYMENT, amount=amount, currency=currency, status=target_status, payment_method=payment.payment_method, transaction_content=content, raw_response=raw_response, processed_at=now, created_by=payment.created_by, updated_by=payment.updated_by)
         allowed = {PaymentStatus.PENDING: {PaymentStatus.PROCESSING, PaymentStatus.SUCCESS, PaymentStatus.FAILED, PaymentStatus.EXPIRED, PaymentStatus.CANCELLED}, PaymentStatus.PROCESSING: {PaymentStatus.SUCCESS, PaymentStatus.FAILED, PaymentStatus.EXPIRED, PaymentStatus.CANCELLED}, PaymentStatus.SUCCESS: set(), PaymentStatus.FAILED: set(), PaymentStatus.EXPIRED: set(), PaymentStatus.CANCELLED: set()}
         if target_status not in allowed[payment.status] and target_status != payment.status:
             raise ValueError(f"Invalid payment transition: {payment.status} -> {target_status}")
