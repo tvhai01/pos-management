@@ -345,13 +345,22 @@ class ReportFilterForm(forms.Form):
     range identically.
     """
 
-    date_from = forms.DateField(label="Từ ngày", required=False)
-    date_to = forms.DateField(label="Đến ngày", required=False)
+    date_from = forms.DateField(
+        label="Từ ngày",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
+    date_to = forms.DateField(
+        label="Đến ngày",
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
     top_n = forms.IntegerField(
         label="Top N",
         required=False,
         min_value=1,
         max_value=MAX_TOP_N,
+        widget=forms.NumberInput(attrs={"min": 1, "max": MAX_TOP_N}),
     )
     sort_by = forms.ChoiceField(
         label="Sắp xếp theo",

@@ -302,6 +302,29 @@ VIETQR_ACCOUNT_NUMBER: str = config("VIETQR_ACCOUNT_NUMBER", default="")
 VIETQR_ACCOUNT_NAME: str = config("VIETQR_ACCOUNT_NAME", default="")
 
 # =============================================================================
+# Report AI Insight — see apps/reports/ai/
+# =============================================================================
+# Missing keys are expected in dev/CI: ReportInsightService falls back to a
+# rule-based generator, so the feature always works without either provider.
+
+GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="")
+GEMINI_API_URL: str = config(
+    "GEMINI_API_URL",
+    default="https://generativelanguage.googleapis.com/v1beta/models",
+)
+GEMINI_MODEL: str = config("GEMINI_MODEL", default="gemini-2.0-flash")
+
+GROQ_API_KEY: str = config("GROQ_API_KEY", default="")
+GROQ_API_URL: str = config(
+    "GROQ_API_URL",
+    default="https://api.groq.com/openai/v1/chat/completions",
+)
+GROQ_MODEL: str = config("GROQ_MODEL", default="llama-3.3-70b-versatile")
+
+AI_INSIGHT_TIMEOUT: int = config("AI_INSIGHT_TIMEOUT", default=10, cast=int)
+AI_INSIGHT_CACHE_TTL: int = config("AI_INSIGHT_CACHE_TTL", default=900, cast=int)
+
+# =============================================================================
 # Application Version
 # =============================================================================
 
