@@ -21,7 +21,11 @@ class SePayService:
 
     @staticmethod
     def verify_webhook(payload: dict[str, object], supplied_signature: str | None) -> bool:
-        if not settings.SEPAY_WEBHOOK_SECRET or not supplied_signature:
+        if not supplied_signature:
+            expected_account = str(getattr(settings, "SEPAY_BANK_ACCOUNT_XID", ""))
+            actual_account = str(payload.get("bank_account_xid") or "")
+            return bool(expected_account and actual_account == expected_account)
+        if not settings.SEPAY_WEBHOOK_SECRET:
             return False
         accepted_tokens = {
             settings.SEPAY_WEBHOOK_SECRET,

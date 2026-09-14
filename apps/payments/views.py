@@ -136,6 +136,9 @@ class PaymentTransactionListView(GenericAPIView):
 class SePayWebhookView(GenericAPIView):
     permission_classes = (AllowAny,)
 
+    def get(self, request: Request) -> Any:
+        return success_response({"webhook": "ready", "method": "POST"})
+
     def post(self, request: Request) -> Any:
         payload = dict(request.data)
         aliases = {
@@ -147,10 +150,18 @@ class SePayWebhookView(GenericAPIView):
             "transferType": "transfer_type",
             "transactionDate": "transaction_date",
             "referenceCode": "reference",
+            "subAccount": "bank_account_xid",
+            "accountNumber": "account_number",
+            "gateway": "gateway",
+            "accumulated": "accumulated",
         }
         for source, target in aliases.items():
             if source in payload and target not in payload:
                 payload[target] = payload[source]
+        if not payload.get("order_invoice_number") and payload.get("transaction_content"):
+            payload["order_invoice_number"] = payload["transaction_content"]
+        if not payload.get("transaction_id") and payload.get("id"):
+            payload["transaction_id"] = payload["id"]
         serializer = WebhookSerializer(data=payload)
         serializer.is_valid(raise_exception=True)
         signature = (

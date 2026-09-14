@@ -1,4 +1,5 @@
 import logging
+import re
 import uuid
 from datetime import timedelta
 from decimal import Decimal
@@ -228,7 +229,7 @@ class PaymentService:
         if expected_bank_account_xid and bank_account_xid and bank_account_xid != expected_bank_account_xid:
             raise ValueError("Bank account mismatch.")
         transfer_type = str(payload.get("transfer_type") or "").lower()
-        if transfer_type and transfer_type != "credit":
+        if transfer_type and transfer_type not in {"credit", "in"}:
             raise ValueError("Only incoming credit transactions are accepted.")
         content = str(
             payload.get("transaction_content")
@@ -257,6 +258,22 @@ class PaymentService:
                 .filter(invoice__invoice_number=reference, status=PaymentStatus.PENDING)
                 .order_by("-created_at")
                 .first()
+            )
+        if payment is None and reference:
+            normalized_reference = re.sub(r"[^A-Z0-9]", "", reference.upper())
+            candidates = Payment.objects.select_for_update().filter(
+                payment_method=PaymentMethod.SEPAY,
+                status=PaymentStatus.PENDING,
+                invoice__status=InvoiceStatus.PENDING_PAYMENT,
+            )
+            payment = next(
+                (
+                    candidate
+                    for candidate in candidates
+                    if re.sub(r"[^A-Z0-9]", "", candidate.reference.upper())
+                    == normalized_reference
+                ),
+                None,
             )
         if payment is None:
             raise ValueError("Payment not found.")
