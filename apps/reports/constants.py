@@ -31,6 +31,24 @@ class TopSellingSortBy(models.TextChoices):
     QUANTITY = "quantity", "Số lượng"
 
 
+class ReportType(models.TextChoices):
+    """Identifies which report a `ReportInsightService.generate` call is for."""
+
+    REVENUE = "revenue", "Doanh thu"
+    TOP_SELLING_PRODUCTS = "top_selling_products", "Sản phẩm bán chạy"
+    INVENTORY = "inventory", "Tồn kho"
+    PAYMENT_BREAKDOWN = "payment_breakdown", "Phương thức thanh toán"
+    CUSTOMER = "customer", "Khách hàng"
+
+
+class AIInsightSource(models.TextChoices):
+    """Which layer of the fallback chain actually produced an insight."""
+
+    GEMINI = "gemini", "Gemini"
+    GROQ = "groq", "Groq"
+    RULE_BASED = "rule_based", "Rule-based"
+
+
 MSG_INVALID_DATE_RANGE = (
     "Ngày bắt đầu (date_from) phải trước hoặc bằng ngày kết thúc (date_to)."
 )

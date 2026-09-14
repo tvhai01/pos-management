@@ -230,12 +230,17 @@ trang 403.
 | `GET` | `/inventory/{product_id}/` | Chi tiết tồn và lịch sử biến động | Session | `view:inventory` |
 | `POST` | `/inventory/{product_id}/movement/` | Nhập/xuất/điều chỉnh tồn kho | Session | `create:inventory` |
 | `POST` | `/inventory/{product_id}/threshold/` | Cập nhật ngưỡng tồn thấp | Session | `update:inventory` |
-| `GET` | `/reports/` | Tổng quan báo cáo doanh thu, sản phẩm bán chạy, tồn kho, thanh toán, khách hàng (lọc theo khoảng thời gian) | Session | `view:report` |
+| `GET` | `/reports/` | Tổng quan báo cáo doanh thu, sản phẩm bán chạy, tồn kho, thanh toán, khách hàng (lọc theo khoảng thời gian, kèm chart + nút "Phân tích AI" mỗi báo cáo) | Session | `view:report` |
 | `GET` | `/reports/revenue/export/` | Xuất CSV báo cáo doanh thu | Session | `export:report` |
+| `GET` | `/reports/revenue/insights/` | JSON: AI Insight (nhận xét + đề xuất) cho báo cáo doanh thu | Session | `view:report` |
 | `GET` | `/reports/products/top-selling/export/` | Xuất CSV báo cáo sản phẩm bán chạy | Session | `export:report` |
+| `GET` | `/reports/products/top-selling/insights/` | JSON: AI Insight cho báo cáo sản phẩm bán chạy | Session | `view:report` |
 | `GET` | `/reports/inventory/export/` | Xuất CSV báo cáo tồn kho | Session | `export:report` |
+| `GET` | `/reports/inventory/insights/` | JSON: AI Insight cho báo cáo tồn kho | Session | `view:report` |
 | `GET` | `/reports/payments/breakdown/export/` | Xuất CSV báo cáo phương thức thanh toán | Session | `export:report` |
+| `GET` | `/reports/payments/breakdown/insights/` | JSON: AI Insight cho báo cáo thanh toán | Session | `view:report` |
 | `GET` | `/reports/customers/export/` | Xuất CSV báo cáo khách hàng | Session | `export:report` |
+| `GET` | `/reports/customers/insights/` | JSON: AI Insight cho báo cáo khách hàng | Session | `view:report` |
 
 ### JSON API Root
 
@@ -412,18 +417,32 @@ Payment/PaymentTransaction, Inventory/StockMovement, Product, Customer. Doanh
 thu tính trên `Invoice.status = Paid` (không tính theo Order hay Payment —
 xem [`docs/prd_report.md`](docs/prd_report.md) mục 9).
 
+Mỗi báo cáo có thêm endpoint `.../insights/` (AI Insight): nhận xét + đề xuất
+tiếng Việt sinh từ `apps/reports/services.py::ReportInsightService`, theo
+chuỗi fallback **Gemini → Groq → rule-based** (`apps/reports/insights.py`) —
+thiếu `GEMINI_API_KEY`/`GROQ_API_KEY` vẫn hoạt động bình thường nhờ lớp
+rule-based cuối cùng. Kết quả cache theo Redis (`AI_INSIGHT_CACHE_TTL`, mặc
+định 15 phút) để tránh gọi provider lặp lại. Với báo cáo khách hàng, tên
+khách hàng bị loại khỏi payload gửi ra ngoài trước khi gọi Gemini/Groq
+(`apps/reports/ai/prompts.py`) — chỉ gửi `customer_code` và số liệu.
+
 | Method | Endpoint | Mô tả | Auth | Permission |
 |---|---|---|---|---|
 | `GET` | `/api/v1/reports/revenue/` | Doanh thu, số hoá đơn, breakdown theo ngày/tuần/tháng | Có | `view:report` |
 | `GET` | `/api/v1/reports/revenue/export/` | Xuất CSV báo cáo doanh thu | Có | `export:report` |
+| `GET` | `/api/v1/reports/revenue/insights/` | AI Insight (nhận xét + đề xuất, Gemini → Groq → rule-based) cho báo cáo doanh thu | Có | `view:report` |
 | `GET` | `/api/v1/reports/products/top-selling/` | Top sản phẩm bán chạy theo số lượng hoặc doanh thu | Có | `view:report` |
 | `GET` | `/api/v1/reports/products/top-selling/export/` | Xuất CSV | Có | `export:report` |
+| `GET` | `/api/v1/reports/products/top-selling/insights/` | AI Insight cho báo cáo sản phẩm bán chạy | Có | `view:report` |
 | `GET` | `/api/v1/reports/inventory/` | Tổng quan tồn kho (hết hàng, tồn thấp, giá trị tồn) và biến động trong kỳ | Có | `view:report` |
 | `GET` | `/api/v1/reports/inventory/export/` | Xuất CSV | Có | `export:report` |
+| `GET` | `/api/v1/reports/inventory/insights/` | AI Insight cho báo cáo tồn kho | Có | `view:report` |
 | `GET` | `/api/v1/reports/payments/breakdown/` | Số giao dịch/tiền thu theo phương thức và nhà cung cấp | Có | `view:report` |
 | `GET` | `/api/v1/reports/payments/breakdown/export/` | Xuất CSV | Có | `export:report` |
+| `GET` | `/api/v1/reports/payments/breakdown/insights/` | AI Insight cho báo cáo thanh toán | Có | `view:report` |
 | `GET` | `/api/v1/reports/customers/` | Top khách hàng theo chi tiêu và số khách hàng mới trong kỳ | Có | `view:report` |
 | `GET` | `/api/v1/reports/customers/export/` | Xuất CSV | Có | `export:report` |
+| `GET` | `/api/v1/reports/customers/insights/` | AI Insight cho báo cáo khách hàng | Có | `view:report` |
 
 Tham số query dùng chung cho mọi endpoint trên: `date_from`, `date_to` (mặc
 định 30 ngày gần nhất nếu bỏ trống; `date_from` phải ≤ `date_to`). Riêng

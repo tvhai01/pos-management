@@ -367,6 +367,87 @@ h1 {
   font-size: 0.9rem;
 }
 
+/* Report filter — grouped by scope (date range applies to every report;
+   Top N / sort only apply to the Top-selling & Customer reports). */
+.report-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1.75rem;
+  row-gap: 1rem;
+}
+.report-filter__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.report-filter__group-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+.report-filter__group-label .report-filter__scope-hint {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  margin-top: 0.15rem;
+  color: var(--text-muted);
+}
+.report-filter__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.report-filter__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.report-filter__field label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.report-filter__field input,
+.report-filter__field select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  background: var(--surface);
+  color: var(--text);
+  min-width: 150px;
+}
+.report-filter__field input:focus,
+.report-filter__field select:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.report-filter__submit {
+  align-self: flex-end;
+}
+
+@media (max-width: 640px) {
+  .report-filter {
+    gap: 1rem;
+  }
+  .report-filter__fields {
+    flex-direction: column;
+    width: 100%;
+  }
+  .report-filter__field input,
+  .report-filter__field select {
+    width: 100%;
+    min-width: 0;
+  }
+  .report-filter__submit {
+    width: 100%;
+  }
+}
+
 .btn {
   display: inline-block;
   padding: 0.5rem 0.9rem;

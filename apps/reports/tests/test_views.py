@@ -263,3 +263,143 @@ class TestCustomerReportExportView:
         response = authenticated_report_client.get(self.URL)
         assert response.status_code == status.HTTP_200_OK
         assert response["Content-Type"].startswith("text/csv")
+
+
+# =============================================================================
+# AI Insight endpoints
+#
+# No GEMINI_API_KEY/GROQ_API_KEY configured here on purpose: every assertion
+# exercises the real view -> selector -> ReportInsightService wiring end to
+# end, and with both providers unconfigured the service deterministically
+# falls back to RuleBasedInsightGenerator — no network call, no flakiness.
+# The fallback chain itself (Gemini -> Groq -> rule-based) is covered with
+# mocks in apps/reports/tests/test_insights.py.
+# =============================================================================
+
+
+@pytest.fixture
+def _no_ai_keys(settings):
+    settings.GEMINI_API_KEY = ""
+    settings.GROQ_API_KEY = ""
+
+
+@pytest.mark.usefixtures("_no_ai_keys")
+@pytest.mark.django_db
+class TestRevenueInsightView:
+    URL = "/api/v1/reports/revenue/insights/"
+
+    def test_requires_authentication(self, api_client: APIClient):
+        response = api_client.get(self.URL)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_authenticated_without_permission_is_forbidden(
+        self, authenticated_client: APIClient
+    ):
+        response = authenticated_client.get(self.URL)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_view_permission_grants_access(
+        self, authenticated_view_only_report_client: APIClient
+    ):
+        response = authenticated_view_only_report_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
+        data = response.data["data"]
+        assert "summary" in data
+        assert "recommendations" in data
+        assert data["source"] == "rule_based"
+
+    def test_superuser_bypasses_rbac(self, superuser_client: APIClient):
+        response = superuser_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.usefixtures("_no_ai_keys")
+@pytest.mark.django_db
+class TestTopSellingProductsInsightView:
+    URL = "/api/v1/reports/products/top-selling/insights/"
+
+    def test_authenticated_without_permission_is_forbidden(
+        self, authenticated_client: APIClient
+    ):
+        response = authenticated_client.get(self.URL)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_view_permission_grants_access(
+        self, authenticated_view_only_report_client: APIClient
+    ):
+        response = authenticated_view_only_report_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert "summary" in response.data["data"]
+
+    def test_superuser_bypasses_rbac(self, superuser_client: APIClient):
+        response = superuser_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.usefixtures("_no_ai_keys")
+@pytest.mark.django_db
+class TestInventoryInsightView:
+    URL = "/api/v1/reports/inventory/insights/"
+
+    def test_authenticated_without_permission_is_forbidden(
+        self, authenticated_client: APIClient
+    ):
+        response = authenticated_client.get(self.URL)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_view_permission_grants_access(
+        self, authenticated_view_only_report_client: APIClient
+    ):
+        response = authenticated_view_only_report_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert "summary" in response.data["data"]
+
+    def test_superuser_bypasses_rbac(self, superuser_client: APIClient):
+        response = superuser_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.usefixtures("_no_ai_keys")
+@pytest.mark.django_db
+class TestPaymentBreakdownInsightView:
+    URL = "/api/v1/reports/payments/breakdown/insights/"
+
+    def test_authenticated_without_permission_is_forbidden(
+        self, authenticated_client: APIClient
+    ):
+        response = authenticated_client.get(self.URL)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_view_permission_grants_access(
+        self, authenticated_view_only_report_client: APIClient
+    ):
+        response = authenticated_view_only_report_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert "summary" in response.data["data"]
+
+    def test_superuser_bypasses_rbac(self, superuser_client: APIClient):
+        response = superuser_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.usefixtures("_no_ai_keys")
+@pytest.mark.django_db
+class TestCustomerInsightView:
+    URL = "/api/v1/reports/customers/insights/"
+
+    def test_authenticated_without_permission_is_forbidden(
+        self, authenticated_client: APIClient
+    ):
+        response = authenticated_client.get(self.URL)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_view_permission_grants_access(
+        self, authenticated_view_only_report_client: APIClient
+    ):
+        response = authenticated_view_only_report_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
+        assert "summary" in response.data["data"]
+
+    def test_superuser_bypasses_rbac(self, superuser_client: APIClient):
+        response = superuser_client.get(self.URL)
+        assert response.status_code == status.HTTP_200_OK
