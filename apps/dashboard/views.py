@@ -1316,6 +1316,23 @@ def invoice_return(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
     return redirect("dashboard:invoice-detail", invoice_id=invoice_id)
 
 
+@require_permission("view", "invoice")
+def payment_status(request: HttpRequest, payment_id: UUID) -> JsonResponse:
+    payment = Payment.objects.select_related("invoice").filter(id=payment_id).first()
+    if payment is None:
+        return JsonResponse({"status": "NOT_FOUND"}, status=404)
+    response = {
+        "status": payment.status,
+        "invoice_status": payment.invoice.status,
+        "order_url": "",
+    }
+    if payment.invoice.order_id:
+        response["order_url"] = reverse(
+            "dashboard:order-detail", kwargs={"order_id": payment.invoice.order_id}
+        )
+    return JsonResponse(response)
+
+
 @require_POST
 @require_permission("approve", "payment")
 def invoice_manual(request: HttpRequest, invoice_id: UUID) -> HttpResponse:

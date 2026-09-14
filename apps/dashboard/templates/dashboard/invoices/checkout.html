@@ -7,6 +7,7 @@
     <span class="checkout-kicker">THANH TOÁN {{ provider }}</span>
     <h1>Thanh toán qua {{ provider }}</h1>
     <p>Hóa đơn {{ invoice.invoice_number }}</p>
+    <p id="payment-status" class="checkout-status">Đang chờ xác nhận thanh toán...</p>
     {% if checkout.qr_url %}
       <img class="sepay-qr" src="{{ checkout.qr_url }}" alt="Mã QR thanh toán {{ provider }}">
     {% endif %}
@@ -21,5 +22,49 @@
     <a class="checkout-back" href="{% url 'dashboard:invoice-detail' invoice.id %}">Quay lại hóa đơn</a>
   </div>
 </section>
+{% if payment %}
+<script>
+  (function () {
+    const statusUrl = "{% url 'dashboard:payment-status' payment.id %}";
+    const statusElement = document.getElementById("payment-status");
+    let checks = 0;
+    const maxChecks = 120;
+
+    function checkPayment() {
+      fetch(statusUrl, {headers: {"X-Requested-With": "XMLHttpRequest"}})
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === "SUCCESS" || data.invoice_status === "PAID") {
+            statusElement.textContent = "Thanh toán thành công. Đang chuyển về đơn hàng...";
+            statusElement.classList.add("is-success");
+            window.setTimeout(function () {
+              window.location.href = data.order_url || "{% url 'dashboard:invoice-detail' invoice.id %}";
+            }, 800);
+            return;
+          }
+          if (["FAILED", "CANCELLED", "EXPIRED"].includes(data.status)) {
+            statusElement.textContent = "Thanh toán chưa thành công: " + data.status;
+            statusElement.classList.add("is-error");
+            return;
+          }
+          checks += 1;
+          if (checks < maxChecks) {
+            window.setTimeout(checkPayment, 3000);
+          } else {
+            statusElement.textContent = "Chưa nhận được xác nhận. Bạn có thể kiểm tra lại hóa đơn.";
+          }
+        })
+        .catch(function () {
+          checks += 1;
+          if (checks < maxChecks) {
+            window.setTimeout(checkPayment, 5000);
+          }
+        });
+    }
+
+    checkPayment();
+  }());
+</script>
+{% endif %}
 {% endblock %}
 {% endwith %}
