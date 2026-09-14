@@ -12,11 +12,15 @@ class PaymentStatus(models.TextChoices):
 
 class PaymentMethod(models.TextChoices):
     QR = "QR", "QR"
+    SEPAY = "SEPAY", "SePay"
     MANUAL = "MANUAL", "Manual"
+    PAYPAL = "PAYPAL", "PayPal"
 
 
 class Provider(models.TextChoices):
     SEPAY = "SEPAY", "SePay"
+    MOMO = "MOMO", "MoMo"
+    PAYPAL = "PAYPAL", "PayPal"
     MANUAL = "MANUAL", "Manual"
 
 

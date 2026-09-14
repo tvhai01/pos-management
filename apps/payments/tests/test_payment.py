@@ -6,10 +6,15 @@ from django.test import override_settings
 from apps.customers.models import Customer
 from apps.invoices.constants import InvoiceStatus
 from apps.invoices.services import InvoiceService
+from apps.orders.services import OrderService
 from apps.payments.constants import PaymentStatus
 from apps.payments.models import Payment, PaymentTransaction
+from apps.payments.paypal import PayPalService
 from apps.payments.services import PaymentService
 from apps.payments.sepay import SePayService
+from apps.product.constants import ProductStatus, ProductUnit
+from apps.product.models import Category
+from apps.product.services import ProductService
 
 
 @pytest.fixture
@@ -76,6 +81,130 @@ def test_bankhub_webhook_matches_invoice_content(pending_invoice, create_user):
     assert transaction.transaction_content == pending_invoice.invoice_number
     assert payment.status == PaymentStatus.SUCCESS
     assert pending_invoice.status == InvoiceStatus.PAID
+
+
+@pytest.mark.django_db
+def test_qr_payment_promotes_draft_invoice_to_pending(create_user, monkeypatch):
+    customer = Customer.objects.create(
+        customer_code="CUS-PAY-003",
+        full_name="Draft Invoice Customer",
+        phone="0900000003",
+        created_by=create_user,
+        updated_by=create_user,
+    )
+    category = Category.objects.create(name="Payment Category", created_by=create_user, updated_by=create_user)
+    product = ProductService.create_product(
+        sku="SKU-PAY-003",
+        name="Draft Invoice Product",
+        cost_price=Decimal("10000"),
+        selling_price=Decimal("50000"),
+        category_id=category.id,
+        unit=ProductUnit.PIECE,
+        status=ProductStatus.ACTIVE,
+        created_by=create_user,
+    )
+    _, invoice = OrderService.create_order(
+        customer=customer,
+        items=[{"product_id": product.id, "quantity": 2}],
+        created_by=create_user,
+    )
+    assert invoice.status == InvoiceStatus.DRAFT
+    monkeypatch.setattr(
+        SePayService,
+        "create_checkout",
+        lambda *args, **kwargs: {"checkout_url": "", "qr_url": "", "qr_code": ""},
+    )
+
+    payment, checkout = PaymentService.create_qr_payment(invoice.id, created_by=create_user)
+
+    invoice.refresh_from_db()
+    assert invoice.status == InvoiceStatus.PENDING_PAYMENT
+    assert payment.status == PaymentStatus.PENDING
+    assert checkout["qr_url"].startswith("https://api.qrserver.com")
+
+
+@pytest.mark.django_db
+def test_paypal_payment_creates_checkout_and_marks_pending(create_user, monkeypatch):
+    customer = Customer.objects.create(
+        customer_code="CUS-PAY-004",
+        full_name="PayPal Customer",
+        phone="0900000004",
+        created_by=create_user,
+        updated_by=create_user,
+    )
+    category = Category.objects.create(name="Paypal Category", created_by=create_user, updated_by=create_user)
+    product = ProductService.create_product(
+        sku="SKU-PAY-004",
+        name="PayPal Product",
+        cost_price=Decimal("10000"),
+        selling_price=Decimal("50000"),
+        category_id=category.id,
+        unit=ProductUnit.PIECE,
+        status=ProductStatus.ACTIVE,
+        created_by=create_user,
+    )
+    _, invoice = OrderService.create_order(
+        customer=customer,
+        items=[{"product_id": product.id, "quantity": 2}],
+        created_by=create_user,
+    )
+    monkeypatch.setattr(
+        PayPalService,
+        "create_checkout",
+        lambda *args, **kwargs: {
+            "checkout_url": "https://www.sandbox.paypal.com/checkoutnow?token=TESTPAYPAL",
+            "qr_url": "",
+            "qr_code": "TESTPAYPAL",
+            "deeplink_url": "",
+            "provider": "PAYPAL",
+        },
+    )
+
+    payment, checkout = PaymentService.create_paypal_payment(invoice.id, created_by=create_user)
+
+    invoice.refresh_from_db()
+    assert invoice.status == InvoiceStatus.PENDING_PAYMENT
+    assert payment.status == PaymentStatus.PENDING
+    assert checkout["provider"] == "PAYPAL"
+    assert checkout["checkout_url"].startswith("https://")
+
+
+@pytest.mark.django_db
+def test_manual_payment_promotes_draft_invoice_to_pending(create_user):
+    customer = Customer.objects.create(
+        customer_code="CUS-PAY-005",
+        full_name="Manual Draft Customer",
+        phone="0900000005",
+        created_by=create_user,
+        updated_by=create_user,
+    )
+    category = Category.objects.create(name="Manual Category", created_by=create_user, updated_by=create_user)
+    product = ProductService.create_product(
+        sku="SKU-PAY-005",
+        name="Manual Draft Product",
+        cost_price=Decimal("10000"),
+        selling_price=Decimal("50000"),
+        category_id=category.id,
+        unit=ProductUnit.PIECE,
+        status=ProductStatus.ACTIVE,
+        created_by=create_user,
+    )
+    _, invoice = OrderService.create_order(
+        customer=customer,
+        items=[{"product_id": product.id, "quantity": 2}],
+        created_by=create_user,
+    )
+
+    payment = PaymentService.create_manual_payment(
+        invoice.id,
+        amount=invoice.total_amount,
+        note="Cash receipt",
+        created_by=create_user,
+    )
+
+    invoice.refresh_from_db()
+    assert invoice.status == InvoiceStatus.PAID
+    assert payment.status == PaymentStatus.SUCCESS
 
 
 @pytest.mark.django_db

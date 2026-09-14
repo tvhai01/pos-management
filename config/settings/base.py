@@ -301,6 +301,22 @@ VIETQR_BANK_ID: str = config("VIETQR_BANK_ID", default="VCB")
 VIETQR_ACCOUNT_NUMBER: str = config("VIETQR_ACCOUNT_NUMBER", default="")
 VIETQR_ACCOUNT_NAME: str = config("VIETQR_ACCOUNT_NAME", default="")
 
+PAYON_BASE_URL: str = config("PAYON_BASE_URL", default="https://dev-api-merchant.payon.vn/v1/merchant")
+MOMO_REDIRECT: str = config("MOMO_REDIRECT", default="https://pos.dyca.vn")
+MOMO_DEEPLINK: str = config("MOMO_DEEPLINK", default="momo://?refId=dev_tool&tripId=GKX2SYA&tranxId=mipay_4179&appId=miniapp.TrkMv54nrF1g1UmRGp1i.myspaapp&deeplink=true&url=")
+MOMO_PARTNER_NAME: str = config("MOMO_PARTNER_NAME", default="Myspa Dev")
+MOMO_BASE_URL_V2: str = config("MOMO_BASE_URL_V2", default="https://test-payment.momo.vn")
+MOMO_PARTNER_CODE: str = config("MOMO_PARTNER_CODE", default="MOMOAR3G20211022")
+MOMO_ACCESS_KEY: str = config("MOMO_ACCESS_KEY", default="z6TZJeskXV5DHal9")
+MOMO_SECRET_KEY: str = config("MOMO_SECRET_KEY", default="KjeXxvqdKpUnfwwBannqYkqILsjdcJpj")
+PAYPAL_CLIENT_ID: str = config("PAYPAL_CLIENT_ID", default="")
+PAYPAL_SECRET: str = config("PAYPAL_SECRET", default="")
+PAYPAL_BASE_URL: str = config("PAYPAL_BASE_URL", default="https://api-m.sandbox.paypal.com")
+PAYPAL_CURRENCY: str = config("PAYPAL_CURRENCY", default="USD")
+PAYPAL_VND_TO_USD_RATE: str = config("PAYPAL_VND_TO_USD_RATE", default="25000")
+PAYPAL_REDIRECT_URL: str = config("PAYPAL_REDIRECT_URL", default="https://pos.dyca.vn/payment/paypal/success")
+PAYPAL_CANCEL_URL: str = config("PAYPAL_CANCEL_URL", default="https://pos.dyca.vn/payment/paypal/cancel")
+
 # =============================================================================
 # Application Version
 # =============================================================================

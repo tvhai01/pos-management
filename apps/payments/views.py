@@ -137,9 +137,27 @@ class SePayWebhookView(GenericAPIView):
     permission_classes = (AllowAny,)
 
     def post(self, request: Request) -> Any:
-        serializer = WebhookSerializer(data=request.data)
+        payload = dict(request.data)
+        aliases = {
+            "code": "order_invoice_number",
+            "content": "transaction_content",
+            "transactionContent": "transaction_content",
+            "description": "transaction_content",
+            "transferAmount": "amount_in",
+            "transferType": "transfer_type",
+            "transactionDate": "transaction_date",
+            "referenceCode": "reference",
+        }
+        for source, target in aliases.items():
+            if source in payload and target not in payload:
+                payload[target] = payload[source]
+        serializer = WebhookSerializer(data=payload)
         serializer.is_valid(raise_exception=True)
-        signature = request.headers.get("X-SePay-Signature") or request.data.get("signature")
+        signature = (
+            request.headers.get("X-SePay-Signature")
+            or request.headers.get("Authorization")
+            or payload.get("signature")
+        )
         try:
             transaction = PaymentService.process_webhook(serializer.validated_data, signature)
         except ValueError as exc:

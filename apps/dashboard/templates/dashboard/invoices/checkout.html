@@ -1,20 +1,25 @@
 {% extends "dashboard/base.html" %}
-{% block title %}Thanh toán QR{% endblock %}
+{% with provider=checkout.provider|default:"MOMO" %}
+{% block title %}Thanh toán {{ provider }}{% endblock %}
 {% block content %}
 <section class="checkout-page">
   <div class="checkout-card">
-    <span class="checkout-kicker">THANH TOÁN SEPAY</span>
-    <h1>Quét mã để thanh toán</h1>
+    <span class="checkout-kicker">THANH TOÁN {{ provider }}</span>
+    <h1>Thanh toán qua {{ provider }}</h1>
     <p>Hóa đơn {{ invoice.invoice_number }}</p>
     {% if checkout.qr_url %}
-      <img class="sepay-qr" src="{{ checkout.qr_url }}" alt="Mã QR thanh toán SePay">
+      <img class="sepay-qr" src="{{ checkout.qr_url }}" alt="Mã QR thanh toán {{ provider }}">
+    {% endif %}
+    {% if checkout.deeplink_url %}
+      <a class="btn" href="{{ checkout.deeplink_url }}" target="_blank" rel="noopener">Mở {{ provider }}</a>
     {% endif %}
     {% if checkout.checkout_url %}
-      <a class="btn" href="{{ checkout.checkout_url }}" target="_blank" rel="noopener">Mở trang thanh toán</a>
-    {% elif not checkout.qr_url %}
-      <p class="checkout-error">SePay chưa trả về mã QR cho order này.</p>
+      <a class="btn btn-secondary" href="{{ checkout.checkout_url }}" target="_blank" rel="noopener">Mở thanh toán {{ provider }}</a>
+    {% elif not checkout.qr_url and not checkout.deeplink_url %}
+      <p class="checkout-error">{{ provider }} chưa tạo link thanh toán cho hóa đơn này.</p>
     {% endif %}
     <a class="checkout-back" href="{% url 'dashboard:invoice-detail' invoice.id %}">Quay lại hóa đơn</a>
   </div>
 </section>
 {% endblock %}
+{% endwith %}

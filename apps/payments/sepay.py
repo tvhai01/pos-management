@@ -23,6 +23,14 @@ class SePayService:
     def verify_webhook(payload: dict[str, object], supplied_signature: str | None) -> bool:
         if not settings.SEPAY_WEBHOOK_SECRET or not supplied_signature:
             return False
+        accepted_tokens = {
+            settings.SEPAY_WEBHOOK_SECRET,
+            settings.SEPAY_KEY,
+            f"Apikey {settings.SEPAY_WEBHOOK_SECRET}",
+            f"Apikey {settings.SEPAY_KEY}",
+        }
+        if supplied_signature in accepted_tokens:
+            return True
         received = dict(payload)
         received.pop("signature", None)
         expected = SePayService.signature(received)
@@ -114,6 +122,7 @@ class SePayService:
                 f"{qr_query}"
             ),
             "qr_code": reference,
+            "provider": "SEPAY",
             "order": {
                 "reference": reference,
                 "amount": int(amount),

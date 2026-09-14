@@ -11,8 +11,11 @@ from django.contrib import admin
 from django.urls import include, path
 
 from config.views import HomeView
+from apps.payments.views import SePayWebhookView
 
 urlpatterns: list = [
+    path("hooks/seepay/method", SePayWebhookView.as_view(), name="seepay-method-hook-no-slash"),
+    path("hooks/seepay/method/", SePayWebhookView.as_view(), name="seepay-method-hook-root"),
     # Home — session-authenticated dashboard UI (login + feature screens)
     path("", include("apps.dashboard.urls")),
     # Django Admin

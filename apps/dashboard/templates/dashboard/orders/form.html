@@ -1,4 +1,5 @@
 {% extends "dashboard/base.html" %}
+{% load humanize %}
 {% block title %}Tạo đơn hàng{% endblock %}
 {% block content %}
 <section class="order-page">
@@ -29,9 +30,26 @@
 			</select>
 		</div>
 
+		<div class="form-section customer-section">
+			<div class="section-heading">
+				<span class="section-number">02</span>
+				<div>
+					<h2>Phương thức thanh toán</h2>
+					<p>Chọn cách thanh toán ngay khi tạo đơn.</p>
+				</div>
+			</div>
+			<label class="field-label" for="payment-method">Phương thức</label>
+			<select class="form-control" id="payment-method" name="payment_method">
+				<option value="MOMO">Momo (đi qua QR/checkout)</option>
+				<option value="SEPAY">SePay (QR ngân hàng)</option>
+				<option value="PAYPAL">PayPal (checkout PayPal)</option>
+				<option value="MANUAL">Thủ công (+)</option>
+			</select>
+		</div>
+
 		<div class="form-section">
 			<div class="section-heading section-heading-products">
-				<span class="section-number">02</span>
+				<span class="section-number">03</span>
 				<div>
 					<h2>Sản phẩm trong đơn</h2>
 					<p>Thêm một hoặc nhiều sản phẩm và nhập số lượng tương ứng.</p>
@@ -50,10 +68,10 @@
 				<div class="order-row">
 					<select name="product_id" aria-label="Sản phẩm" required>
 						{% for product in products %}
-							<option value="{{ product.id }}">{{ product.name }} — {{ product.sku }} — {{ product.selling_price }} VND</option>
+							<option value="{{ product.id }}">{{ product.name }} — {{ product.sku }} — {{ product.selling_price|floatformat:2|intcomma }} VND</option>
 						{% endfor %}
 					</select>
-					<input name="quantity" aria-label="Số lượng" type="number" min="0.001" step="0.001" value="1" required>
+					<input name="quantity" aria-label="Số lượng" type="number" min="1" step="1" value="1" required pattern="[0-9]*">
 					<button class="remove-product" type="button" aria-label="Xóa sản phẩm" onclick="removeRow(this)">×</button>
 				</div>
 			</div>
@@ -70,7 +88,10 @@
 		const firstRow = document.querySelector('.order-row');
 		const row = firstRow.cloneNode(true);
 		row.querySelector('select').selectedIndex = 0;
-		row.querySelector('input').value = '1';
+		const qtyInput = row.querySelector('input');
+		qtyInput.value = '1';
+		qtyInput.min = '1';
+		qtyInput.step = '1';
 		document.getElementById('items').appendChild(row);
 		updateRemoveButtons();
 	}
@@ -86,9 +107,21 @@
 	function updateRemoveButtons() {
 		const rows = document.querySelectorAll('.order-row');
 		rows.forEach(row => {
+			const qtyInput = row.querySelector('input[name="quantity"]');
+			if (qtyInput) {
+				qtyInput.min = '1';
+				qtyInput.step = '1';
+				qtyInput.value = qtyInput.value === '' ? '1' : String(Math.max(1, Math.round(Number(qtyInput.value))));
+			}
 			row.querySelector('.remove-product').disabled = rows.length === 1;
 		});
 	}
+
+	document.addEventListener('input', function (event) {
+		if (event.target && event.target.name === 'quantity') {
+			event.target.value = String(Math.max(1, Math.round(Number(event.target.value || 1))));
+		}
+	});
 
 	updateRemoveButtons();
 </script>

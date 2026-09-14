@@ -1097,28 +1097,75 @@ def order_create(request: HttpRequest) -> HttpResponse:
     products = ProductSelector.get_all_products().filter(status="active")
     if request.method == "POST":
         try:
-            customer = CustomerSelector.get_customer_by_id(request.POST["customer_id"])
+            customer_id = request.POST.get("customer_id", "").strip()
+            customer = CustomerSelector.get_customer_by_id(customer_id)
             product_ids = request.POST.getlist("product_id")
             quantities = request.POST.getlist("quantity")
-            if customer is None or len(product_ids) != len(quantities):
-                raise ValueError("Customer and product rows are required.")
+            payment_method = (request.POST.get("payment_method") or "MOMO").upper()
+            if customer is None:
+                raise ValueError("Vui lòng chọn khách hàng hợp lệ.")
+            if not product_ids or len(product_ids) != len(quantities):
+                raise ValueError("Vui lòng chọn ít nhất một sản phẩm.")
+            if payment_method not in {"MOMO", "SEPAY", "PAYPAL", "MANUAL"}:
+                raise ValueError("Phương thức thanh toán không hợp lệ.")
+            order_items = []
+            for product_id, quantity in zip(product_ids, quantities, strict=True):
+                try:
+                    normalized_quantity = int(quantity)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError("Số lượng sản phẩm phải là số nguyên.") from exc
+                if normalized_quantity < 1:
+                    raise ValueError("Số lượng sản phẩm phải lớn hơn 0.")
+                order_items.append({"product_id": product_id, "quantity": normalized_quantity})
             order, invoice = OrderService.create_order(
                 customer=customer,
-                items=[
-                    {"product_id": product_id, "quantity": quantity}
-                    for product_id, quantity in zip(
-                        product_ids, quantities, strict=True
-                    )
-                ],
+                items=order_items,
                 created_by=_authenticated_user(request),
             )
-            messages.success(
-                request,
-                f"Đã tạo đơn {order.order_number} và hóa đơn {invoice.invoice_number}.",
-            )
-            return redirect("dashboard:order-detail", order_id=order.id)
-        except (KeyError, ValueError):
-            messages.error(request, "Dữ liệu đơn hàng không hợp lệ.")
+            if payment_method == "MANUAL":
+                PaymentService.create_manual_payment(
+                    invoice.id,
+                    amount=invoice.total_amount,
+                    reference=f"AUTO-{invoice.invoice_number}",
+                    note="Thanh toán tại quầy",
+                    created_by=_authenticated_user(request),
+                )
+                messages.success(request, f"Đã tạo đơn {order.order_number} và ghi nhận thanh toán thủ công.")
+                return redirect("dashboard:invoice-detail", invoice_id=invoice.id)
+            if payment_method == "PAYPAL":
+                InvoiceService.transition(invoice.id, InvoiceStatus.PENDING_PAYMENT, _authenticated_user(request))
+                payment, checkout = PaymentService.create_paypal_payment(
+                    invoice.id,
+                    created_by=_authenticated_user(request),
+                    return_url=request.build_absolute_uri(reverse("dashboard:invoice-return", kwargs={"invoice_id": invoice.id})),
+                    cancel_url=request.build_absolute_uri(reverse("dashboard:invoice-return", kwargs={"invoice_id": invoice.id})),
+                )
+                messages.success(request, f"Đã tạo đơn {order.order_number} và chuyển sang thanh toán PayPal.")
+                return render(
+                    request,
+                    "dashboard/invoices/checkout.html",
+                    {"checkout": checkout, "invoice": invoice, "payment": payment},
+                )
+            if payment_method == "SEPAY":
+                InvoiceService.transition(invoice.id, InvoiceStatus.PENDING_PAYMENT, _authenticated_user(request))
+                return_url = request.build_absolute_uri(reverse("dashboard:invoice-return", kwargs={"invoice_id": invoice.id}))
+                payment, checkout = PaymentService.create_sepay_payment(
+                    invoice.id,
+                    created_by=_authenticated_user(request),
+                    return_url=return_url,
+                )
+                messages.success(request, f"Đã tạo đơn {order.order_number} và chuyển sang thanh toán SePay.")
+                return render(
+                    request,
+                    "dashboard/invoices/checkout.html",
+                    {"checkout": checkout, "invoice": invoice, "payment": payment},
+                )
+            InvoiceService.transition(invoice.id, InvoiceStatus.PENDING_PAYMENT, _authenticated_user(request))
+            messages.success(request, f"Đã tạo đơn {order.order_number} và chuyển sang thanh toán MoMo.")
+            return redirect("dashboard:invoice-qr", invoice_id=invoice.id)
+        except (KeyError, ValueError) as exc:
+            logger.warning("dashboard.order_create_validation_failed error=%s", exc)
+            messages.error(request, str(exc) or "Dữ liệu đơn hàng không hợp lệ.")
     return render(
         request,
         "dashboard/orders/form.html",
@@ -1204,7 +1251,6 @@ def invoice_pending(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
     return redirect("dashboard:invoice-detail", invoice_id=invoice_id)
 
 
-@require_POST
 @require_permission("create", "payment")
 def invoice_qr(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
     try:
@@ -1212,7 +1258,7 @@ def invoice_qr(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
         if invoice is None:
             raise Invoice.DoesNotExist
         return_url = request.build_absolute_uri(
-            reverse("dashboard:invoice-detail", kwargs={"invoice_id": invoice_id})
+            reverse("dashboard:invoice-return", kwargs={"invoice_id": invoice_id})
         )
         _, checkout = PaymentService.create_qr_payment(
             invoice_id,
@@ -1229,6 +1275,42 @@ def invoice_qr(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
     except Exception:
         logger.exception("dashboard.invoice_qr_failed invoice=%s", invoice_id)
         messages.error(request, "Không thể tạo thanh toán QR. Vui lòng thử lại.")
+    return redirect("dashboard:invoice-detail", invoice_id=invoice_id)
+
+
+@require_permission("view", "invoice")
+def invoice_return(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
+    """Sync invoice state after returning from a payment provider and send user back to the order."""
+    try:
+        invoice = InvoiceSelector.get_by_id(invoice_id)
+        token = request.GET.get("token") or request.GET.get("paymentId")
+        payer_id = request.GET.get("PayerID") or request.GET.get("payerId")
+        if invoice is not None and token:
+            try:
+                PaymentService.capture_paypal_payment(
+                    invoice_id,
+                    order_id=token,
+                    payer_id=payer_id,
+                    created_by=_authenticated_user(request),
+                )
+                messages.success(request, "Thanh toán PayPal đã được xác nhận và hóa đơn đã được thanh toán.")
+            except ValueError as exc:
+                logger.warning("dashboard.paypal_capture_failed invoice=%s token=%s error=%s", invoice_id, token, exc)
+                messages.warning(request, str(exc))
+        if invoice is not None:
+            successful_amount = sum(
+                (payment.amount for payment in invoice.payments.all() if payment.status == PaymentStatus.SUCCESS),
+                Decimal("0"),
+            )
+            if successful_amount >= invoice.total_amount and invoice.status != InvoiceStatus.PAID:
+                InvoiceService.transition(invoice_id, InvoiceStatus.PAID, _authenticated_user(request))
+                messages.success(request, "Thanh toán đã được đồng bộ và hóa đơn đã được thanh toán.")
+            elif invoice.status == InvoiceStatus.PENDING_PAYMENT:
+                messages.info(request, "Hóa đơn đang chờ thanh toán. Đơn hàng đã được cập nhật lại.")
+        if invoice is not None and invoice.order_id:
+            return redirect("dashboard:order-detail", order_id=invoice.order_id)
+    except (Invoice.DoesNotExist, ValueError):
+        logger.warning("dashboard.invoice_return_failed invoice=%s", invoice_id)
     return redirect("dashboard:invoice-detail", invoice_id=invoice_id)
 
 

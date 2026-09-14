@@ -51,7 +51,7 @@ class InvoiceService:
             invoice.paid_at = timezone.now()
             if invoice.order_id:
                 order = Order.objects.select_for_update().get(id=invoice.order_id)
-                if order.status == OrderStatus.PENDING_PAYMENT:
+                if order.status in {OrderStatus.DRAFT, OrderStatus.PENDING_PAYMENT}:
                     order.status = OrderStatus.PAID
                     order.paid_at = invoice.paid_at
                     order.save(update_fields=["status", "paid_at", "updated_at"])

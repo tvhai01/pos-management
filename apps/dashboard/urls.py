@@ -84,6 +84,7 @@ urlpatterns: list = [
         views.invoice_pending,
         name="invoice-pending",
     ),
+    path("invoices/<uuid:invoice_id>/return/", views.invoice_return, name="invoice-return"),
     path("invoices/<uuid:invoice_id>/qr/", views.invoice_qr, name="invoice-qr"),
     path(
         "invoices/<uuid:invoice_id>/manual/",

@@ -1,11 +1,12 @@
 {% extends "dashboard/base.html" %}
+{% load humanize %}
 {% block title %}Hóa đơn{% endblock %}
 {% block content %}
 <div class="card">
   <h1>Hóa đơn</h1>
   <form method="get"><input name="search" value="{{ search }}" placeholder="Tìm số hóa đơn"><button class="btn" type="submit">Tìm</button></form>
   <table><thead><tr><th>Số hóa đơn</th><th>Khách hàng</th><th>Tổng</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-  {% for invoice in invoices %}<tr><td>{{ invoice.invoice_number }}</td><td>{{ invoice.customer.full_name }}</td><td>{{ invoice.total_amount|floatformat:2 }} {{ invoice.currency }}</td><td>{{ invoice.status }}</td><td><a class="btn" href="{% url 'dashboard:invoice-detail' invoice.id %}">Chi tiết</a></td></tr>{% empty %}<tr><td colspan="5">Chưa có hóa đơn.</td></tr>{% endfor %}
+  {% for invoice in invoices %}<tr><td>{{ invoice.invoice_number }}</td><td>{{ invoice.customer.full_name }}</td><td>{{ invoice.total_amount|floatformat:2|intcomma }} {{ invoice.currency }}</td><td>{{ invoice.status }}</td><td><a class="btn" href="{% url 'dashboard:invoice-detail' invoice.id %}">Chi tiết</a></td></tr>{% empty %}<tr><td colspan="5">Chưa có hóa đơn.</td></tr>{% endfor %}
   </tbody></table>
 </div>
 {% endblock %}
