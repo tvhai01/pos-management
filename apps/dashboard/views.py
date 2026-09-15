@@ -659,13 +659,6 @@ def product_list(request: HttpRequest) -> HttpResponse:
             "sort": sort,
             "selected_product": selected_product,
             "active_module": "product",
-            "can_view_product": True,
-            "can_view_inventory": PermissionSelector.user_has_permission(
-                user, "view", "inventory"
-            ),
-            "can_view_report": PermissionSelector.user_has_permission(
-                user, "view", "report"
-            ),
             "can_create": PermissionSelector.user_has_permission(
                 user, "create", "product"
             ),
@@ -938,13 +931,6 @@ def inventory_list(request: HttpRequest) -> HttpResponse:
             "selected_inventory": selected_inventory,
             "recent_movements": recent_movements,
             "active_module": "inventory",
-            "can_view_product": PermissionSelector.user_has_permission(
-                user, "view", "product"
-            ),
-            "can_view_inventory": True,
-            "can_view_report": PermissionSelector.user_has_permission(
-                user, "view", "report"
-            ),
             "can_create_movement": PermissionSelector.user_has_permission(
                 user, "create", "inventory"
             ),
@@ -982,13 +968,6 @@ def inventory_detail(request: HttpRequest, product_id: UUID) -> HttpResponse:
                 _authenticated_user(request), "update", "inventory"
             ),
             "active_module": "inventory",
-            "can_view_product": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "product"
-            ),
-            "can_view_inventory": True,
-            "can_view_report": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "report"
-            ),
         },
     )
 

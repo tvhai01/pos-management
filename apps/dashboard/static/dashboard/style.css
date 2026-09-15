@@ -705,38 +705,15 @@ th {
   border-radius: 10px;
 }
 
-.workspace-sidebar {
-  padding: 1rem 0.65rem;
-  background: #f1f4f8;
-  border-right: 1px solid #dfe5ed;
-}
-
-.workspace-nav-item {
-  display: block;
-  margin-bottom: 0.35rem;
-  padding: 0.72rem 0.8rem;
-  color: #536174;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.workspace-nav-item:hover {
-  color: #17315d;
-  background: #e8edf4;
-  text-decoration: none;
-}
-
-.workspace-nav-item.is-active {
-  color: #fff;
-  background: #2563eb;
-  border-color: #2563eb;
+/* Product/Inventory now rely on the persistent top module-nav
+   (base.html) instead of their own sidebar — no second column needed. */
+.workspace-shell-no-sidebar {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .workspace-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(210px, 250px);
+  grid-template-columns: minmax(0, 7fr) minmax(240px, 3fr);
   gap: 0.85rem;
   min-width: 0;
   padding: 0.85rem;
@@ -1524,19 +1501,6 @@ th {
 
   .workspace-shell {
     display: block;
-  }
-
-  .workspace-sidebar {
-    display: flex;
-    gap: 0.35rem;
-    overflow-x: auto;
-    border-right: 0;
-    border-bottom: 1px solid #dfe5ed;
-  }
-
-  .workspace-nav-item {
-    flex: 0 0 auto;
-    margin: 0;
   }
 
   .workspace-content {

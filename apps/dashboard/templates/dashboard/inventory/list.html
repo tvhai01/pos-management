@@ -3,9 +3,7 @@
 {% block page_class %}workspace-page{% endblock %}
 
 {% block content %}
-<div class="workspace-shell">
-  {% include "dashboard/includes/workspace_sidebar.html" %}
-
+<div class="workspace-shell workspace-shell-no-sidebar">
   <main class="workspace-content">
     <section class="workspace-panel workspace-list-panel" aria-labelledby="inventory-heading">
       <div class="section-heading">
@@ -14,7 +12,6 @@
           <h1 id="inventory-heading">Kho hàng</h1>
           <p class="section-description">{{ inventories.paginator.count }} sản phẩm trong kết quả lọc.</p>
         </div>
-        {% if can_view_product %}<a class="btn btn-secondary" href="{% url 'dashboard:product-list' %}">Sản phẩm</a>{% endif %}
       </div>
 
       <form class="filter-bar" method="get" aria-label="Lọc tồn kho">
