@@ -55,13 +55,17 @@ a:hover {
 .navbar form {
   display: inline;
 }
-.navbar button.link-button {
+.link-button {
   background: none;
   border: none;
   color: var(--primary);
   cursor: pointer;
   padding: 0;
+  font: inherit;
   font-size: 0.9rem;
+}
+.link-button:hover {
+  text-decoration: underline;
 }
 
 /* Persistent secondary nav — every authenticated page, links to every

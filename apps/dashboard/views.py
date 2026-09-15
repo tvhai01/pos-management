@@ -1201,6 +1201,19 @@ def invoice_detail(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
         (payment.amount for payment in payments if payment.status == "SUCCESS"),
         Decimal("0"),
     )
+    active_sepay_payment = (
+        invoice.payments.filter(
+            payment_method="SEPAY",
+            status__in=[PaymentStatus.PENDING, PaymentStatus.PROCESSING],
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    latest_success_payment = (
+        invoice.payments.filter(status=PaymentStatus.SUCCESS)
+        .order_by("-processed_at")
+        .first()
+    )
     return render(
         request,
         "dashboard/invoices/detail.html",
@@ -1211,6 +1224,14 @@ def invoice_detail(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
             "transactions": transactions,
             "paid_amount": paid_amount,
             "remaining_amount": max(invoice.total_amount - paid_amount, Decimal("0")),
+            "active_sepay_payment": active_sepay_payment,
+            "latest_success_payment": latest_success_payment,
+            "can_pay": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "create", "payment"
+            ),
+            "can_transition": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "update", "invoice"
+            ),
         },
     )
 
