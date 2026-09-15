@@ -141,8 +141,7 @@ a:hover {
 }
 
 .order-page {
-  max-width: 900px;
-  margin: 0 auto;
+  max-width: 100%;
 }
 .order-hero {
   display: flex;
@@ -1672,6 +1671,22 @@ th {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+}
+
+/* The narrow payment panel (~3/10 of the page) can't fit
+   .manual-payment-form's normal 4-column grid (built for a full-width
+   card) — stack every field instead, and give the revealed form some
+   visual separation from the buttons above it. */
+.payment-panel .manual-payment-form {
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid #e5eaf0;
+}
+
+.payment-panel .manual-payment-form .btn {
+  width: 100%;
 }
 
 .payment-qr-box {
