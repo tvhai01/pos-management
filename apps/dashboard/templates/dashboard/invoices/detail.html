@@ -1,27 +1,62 @@
 {% extends "dashboard/base.html" %}
 {% load humanize %}
 {% block title %}{{ invoice.invoice_number }} — POS Management System{% endblock %}
+{% block page_class %}workspace-page{% endblock %}
 {% block content %}
-<div class="card">
-  <div class="section-heading">
-    <div>
-      <p class="eyebrow">Bán hàng</p>
-      <h1>{{ invoice.invoice_number }}</h1>
-      <p class="section-description">Khách hàng: {{ invoice.customer.full_name }}</p>
+<div class="builder-layout">
+  <div>
+    <div class="card">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Bán hàng</p>
+          <h1>{{ invoice.invoice_number }}</h1>
+          <p class="section-description">Khách hàng: {{ invoice.customer.full_name }}</p>
+        </div>
+        <div class="section-actions">
+          <span class="status-pill status-invoice-{{ invoice.status|lower }}">{{ invoice.get_status_display }}</span>
+        </div>
+      </div>
+
+      <p>
+        Tổng: <strong>{{ invoice.total_amount|floatformat:2|intcomma }} {{ invoice.currency }}</strong>
+        &nbsp;·&nbsp; Đã trả: {{ paid_amount|floatformat:2|intcomma }}
+        &nbsp;·&nbsp; Còn lại: {{ remaining_amount|floatformat:2|intcomma }}
+      </p>
     </div>
-    <div class="section-actions">
-      <span class="status-pill status-invoice-{{ invoice.status|lower }}">{{ invoice.get_status_display }}</span>
+
+    <div class="card" style="margin-top:1.5rem">
+      <p class="eyebrow">Lịch sử</p>
+      <h2>Lịch sử thanh toán</h2>
+      <div class="table-scroll">
+        <table class="workspace-table">
+          <thead>
+            <tr>
+              <th>Thời gian</th>
+              <th>Provider</th>
+              <th>Số tiền</th>
+              <th>Trạng thái</th>
+              <th>Nội dung</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for transaction in transactions %}
+              <tr>
+                <td>{{ transaction.created_at }}</td>
+                <td>{{ transaction.provider }}</td>
+                <td><strong>{{ transaction.amount|floatformat:2|intcomma }} {{ transaction.currency }}</strong></td>
+                <td>{{ transaction.status }}</td>
+                <td>{{ transaction.transaction_content }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="empty-state">Chưa có giao dịch.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
-  <p>
-    Tổng: <strong>{{ invoice.total_amount|floatformat:2|intcomma }} {{ invoice.currency }}</strong>
-    &nbsp;·&nbsp; Đã trả: {{ paid_amount|floatformat:2|intcomma }}
-    &nbsp;·&nbsp; Còn lại: {{ remaining_amount|floatformat:2|intcomma }}
-  </p>
-</div>
-
-<div class="payment-panel" style="margin-top:1.5rem;max-width:32rem">
+  <aside class="payment-panel">
   <p class="eyebrow">Thanh toán</p>
   <h2 style="margin:0 0 0.75rem">Thông tin thanh toán</h2>
 
@@ -136,36 +171,6 @@
   {% else %}
     <p class="empty-state">Bạn không có quyền tạo thanh toán cho hóa đơn này.</p>
   {% endif %}
-</div>
-
-<div class="card" style="margin-top:1.5rem">
-  <p class="eyebrow">Lịch sử</p>
-  <h2>Lịch sử thanh toán</h2>
-  <div class="table-scroll">
-    <table class="workspace-table">
-      <thead>
-        <tr>
-          <th>Thời gian</th>
-          <th>Provider</th>
-          <th>Số tiền</th>
-          <th>Trạng thái</th>
-          <th>Nội dung</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for transaction in transactions %}
-          <tr>
-            <td>{{ transaction.created_at }}</td>
-            <td>{{ transaction.provider }}</td>
-            <td><strong>{{ transaction.amount|floatformat:2|intcomma }} {{ transaction.currency }}</strong></td>
-            <td>{{ transaction.status }}</td>
-            <td>{{ transaction.transaction_content }}</td>
-          </tr>
-        {% empty %}
-          <tr><td colspan="5" class="empty-state">Chưa có giao dịch.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  </aside>
 </div>
 {% endblock %}
