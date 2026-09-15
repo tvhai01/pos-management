@@ -42,6 +42,16 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
+    # -------------------------------------------------------------------------
+    # Cho phép Navicat từ bên ngoài VPS kết nối PostgreSQL.
+    #
+    # Nếu muốn bảo mật hơn, có thể đổi thành:
+    #   127.0.0.1:5432:5432
+    # và dùng SSH Tunnel trong Navicat.
+    # -------------------------------------------------------------------------
+    ports:
+      - "5432:5432"
+
     healthcheck:
       test:
         [
@@ -92,9 +102,9 @@ services:
     restart: always
 
     # -------------------------------------------------------------------------
-    # Chỉ expose port 8000 trên localhost của VPS.
-    # Apache bên ngoài sẽ reverse proxy vào port này.
-    # Không expose trực tiếp ra Internet.
+    # Chỉ expose Django trên localhost của VPS.
+    # Apache bên ngoài Docker reverse proxy vào port này.
+    # Không expose Django trực tiếp ra Internet.
     # -------------------------------------------------------------------------
     ports:
       - "127.0.0.1:8000:8000"
@@ -119,6 +129,7 @@ services:
       - .env
 
     environment:
+
       # Django
       DJANGO_SETTINGS_MODULE: config.settings.production
 
