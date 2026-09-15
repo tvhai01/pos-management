@@ -2,88 +2,190 @@
 {% load humanize %}
 {% block title %}{{ order.order_number }} — POS Management System{% endblock %}
 {% block content %}
-<div class="card">
-  <div class="section-heading">
-    <div>
-      <p class="eyebrow">Bán hàng</p>
-      <h1>{{ order.order_number }}</h1>
-      <p class="section-description">Khách hàng: {{ order.customer.full_name }}</p>
-    </div>
-    <div class="section-actions">
-      <span class="status-pill status-order-{{ order.status|lower }}">{{ order.get_status_display }}</span>
-    </div>
-  </div>
-
-  <p><strong>Tổng tiền:</strong> {{ order.total_amount|floatformat:2|intcomma }} {{ order.currency }}</p>
-
-  <div class="table-scroll">
-    <table class="workspace-table">
-      <thead>
-        <tr>
-          <th>Sản phẩm</th>
-          <th>SKU</th>
-          <th>Số lượng</th>
-          <th>Đơn giá</th>
-          <th>Thành tiền</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in order.items.all %}
-          <tr>
-            <td>{{ item.product_name }}</td>
-            <td>{{ item.product_sku }}</td>
-            <td>{{ item.quantity }}</td>
-            <td>{{ item.unit_price|floatformat:2|intcomma }}</td>
-            <td><strong>{{ item.total_amount|floatformat:2|intcomma }}</strong></td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-{% if invoice %}
-  <div class="card" style="margin-top:1.5rem">
-    <div class="section-heading">
-      <div>
-        <p class="eyebrow">Hoá đơn</p>
-        <h2>{{ invoice.invoice_number }}</h2>
-        <p class="section-description">{{ invoice.total_amount|floatformat:2|intcomma }} {{ invoice.currency }}</p>
+<div class="builder-layout">
+  <div>
+    <div class="card">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Bán hàng</p>
+          <h1>{{ order.order_number }}</h1>
+          <p class="section-description">Khách hàng: {{ order.customer.full_name }}</p>
+        </div>
+        <div class="section-actions">
+          <span class="status-pill status-order-{{ order.status|lower }}">{{ order.get_status_display }}</span>
+        </div>
       </div>
-      <div class="section-actions">
-        <span class="status-pill status-invoice-{{ invoice.status|lower }}">{{ invoice.get_status_display }}</span>
-      </div>
-    </div>
 
-    {% if invoice.status == "PAID" %}
-      <p class="status-pill status-success">Đã thanh toán thành công.</p>
-    {% else %}
+      <p><strong>Tổng tiền:</strong> {{ order.total_amount|floatformat:2|intcomma }} {{ order.currency }}</p>
+
       <div class="table-scroll">
         <table class="workspace-table">
           <thead>
             <tr>
-              <th>Thời gian</th>
-              <th>Provider</th>
-              <th>Số tiền</th>
-              <th>Trạng thái</th>
+              <th>Sản phẩm</th>
+              <th>SKU</th>
+              <th>Số lượng</th>
+              <th>Đơn giá</th>
+              <th>Thành tiền</th>
             </tr>
           </thead>
           <tbody>
-            {% for transaction in transactions %}
+            {% for item in order.items.all %}
               <tr>
-                <td>{{ transaction.created_at }}</td>
-                <td>{{ transaction.provider }}</td>
-                <td>{{ transaction.amount|floatformat:2|intcomma }} {{ transaction.currency }}</td>
-                <td>{{ transaction.status }}</td>
+                <td>{{ item.product_name }}</td>
+                <td>{{ item.product_sku }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.unit_price|floatformat:2|intcomma }}</td>
+                <td><strong>{{ item.total_amount|floatformat:2|intcomma }}</strong></td>
               </tr>
-            {% empty %}
-              <tr><td colspan="4" class="empty-state">Chưa có giao dịch.</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
-      <p style="margin-top:1rem"><a class="btn" href="{% url 'dashboard:invoice-detail' invoice.id %}">Mở hoá đơn và thanh toán</a></p>
+    </div>
+
+    {% if invoice and transactions %}
+      <div class="card" style="margin-top:1.5rem">
+        <p class="eyebrow">Lịch sử</p>
+        <h2>Lịch sử giao dịch</h2>
+        <div class="table-scroll">
+          <table class="workspace-table">
+            <thead>
+              <tr>
+                <th>Thời gian</th>
+                <th>Provider</th>
+                <th>Số tiền</th>
+                <th>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for transaction in transactions %}
+                <tr>
+                  <td>{{ transaction.created_at }}</td>
+                  <td>{{ transaction.provider }}</td>
+                  <td>{{ transaction.amount|floatformat:2|intcomma }} {{ transaction.currency }}</td>
+                  <td>{{ transaction.status }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="4" class="empty-state">Chưa có giao dịch.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     {% endif %}
   </div>
-{% endif %}
+
+  <aside class="payment-panel">
+    <p class="eyebrow">Bước 2</p>
+    <h2 style="margin:0 0 0.75rem">Thông tin thanh toán</h2>
+
+    {% if not invoice %}
+      <p class="empty-state">Đơn hàng này chưa có hóa đơn liên kết.</p>
+
+    {% elif invoice.status == "PAID" %}
+      <div class="status-pill status-success" style="margin-bottom:0.75rem">Đã thanh toán thành công</div>
+      {% if latest_success_payment %}
+        <div class="detail-list">
+          <div><dt>Số tiền</dt><dd>{{ latest_success_payment.amount|floatformat:2|intcomma }} {{ latest_success_payment.currency }}</dd></div>
+          <div><dt>Phương thức</dt><dd>{{ latest_success_payment.get_payment_method_display }}</dd></div>
+          <div><dt>Thời gian</dt><dd>{{ latest_success_payment.processed_at }}</dd></div>
+          <div><dt>Mã tham chiếu</dt><dd>{{ latest_success_payment.reference }}</dd></div>
+        </div>
+      {% endif %}
+
+    {% elif active_sepay_payment %}
+      <p class="section-description">Quét mã VietQR bên dưới để thanh toán qua SePay.</p>
+      <div class="payment-qr-box">
+        {% if active_sepay_payment.metadata.qr_url %}
+          <img src="{{ active_sepay_payment.metadata.qr_url }}" alt="Mã VietQR thanh toán">
+        {% endif %}
+        {% if active_sepay_payment.metadata.deeplink_url %}
+          <p><a class="btn btn-secondary" href="{{ active_sepay_payment.metadata.deeplink_url }}" target="_blank" rel="noopener">Mở ứng dụng ngân hàng</a></p>
+        {% endif %}
+        <p id="payment-status" class="checkout-status">Đang chờ xác nhận thanh toán...</p>
+      </div>
+      {% if can_pay %}
+        <form method="post" action="{% url 'dashboard:payment-cancel' active_sepay_payment.id %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-quiet btn-block">Hủy và chọn phương thức khác</button>
+        </form>
+      {% endif %}
+      <script>
+        (function () {
+          const statusUrl = "{% url 'dashboard:payment-status' active_sepay_payment.id %}";
+          const statusElement = document.getElementById("payment-status");
+          let checks = 0;
+          const maxChecks = 120;
+
+          function checkPayment() {
+            fetch(statusUrl, {headers: {"X-Requested-With": "XMLHttpRequest"}})
+              .then((response) => response.json())
+              .then((data) => {
+                if (data.status === "SUCCESS" || data.invoice_status === "PAID") {
+                  statusElement.textContent = "Thanh toán thành công. Đang tải lại...";
+                  window.setTimeout(function () { window.location.reload(); }, 800);
+                  return;
+                }
+                if (["FAILED", "CANCELLED", "EXPIRED"].includes(data.status)) {
+                  statusElement.textContent = "Thanh toán chưa thành công (" + data.status + "). Đang tải lại...";
+                  window.setTimeout(function () { window.location.reload(); }, 1500);
+                  return;
+                }
+                checks += 1;
+                if (checks < maxChecks) {
+                  window.setTimeout(checkPayment, 3000);
+                } else {
+                  statusElement.textContent = "Chưa nhận được xác nhận. Vui lòng tải lại trang để kiểm tra.";
+                }
+              })
+              .catch(function () {
+                checks += 1;
+                if (checks < maxChecks) {
+                  window.setTimeout(checkPayment, 5000);
+                }
+              });
+          }
+
+          checkPayment();
+        }());
+      </script>
+
+    {% elif can_pay %}
+      <p class="section-description">Chọn phương thức thanh toán cho hóa đơn {{ invoice.invoice_number }} ({{ invoice.total_amount|floatformat:2|intcomma }} {{ invoice.currency }}).</p>
+      <div class="payment-method-choice">
+        <form method="post" action="{% url 'dashboard:invoice-sepay' invoice.id %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-block">Thanh toán VietQR (SePay)</button>
+        </form>
+
+        <button type="button" class="btn btn-secondary btn-block" id="toggle-manual-payment">Thanh toán thủ công</button>
+        <form method="post" action="{% url 'dashboard:invoice-manual' invoice.id %}" id="manual-payment-form" class="manual-payment-form" hidden>
+          {% csrf_token %}
+          <label class="payment-field">
+            <span>Số tiền</span>
+            <input name="amount" type="number" min="0.01" step="0.01" value="{{ invoice.total_amount }}" required>
+          </label>
+          <label class="payment-field">
+            <span>Mã tham chiếu</span>
+            <input name="reference" placeholder="Không bắt buộc">
+          </label>
+          <label class="payment-field payment-note-field">
+            <span>Ghi chú</span>
+            <input name="note" placeholder="Không bắt buộc">
+          </label>
+          <button class="btn btn-block" type="submit">Xác nhận đã thu tiền</button>
+        </form>
+      </div>
+      <script>
+        document.getElementById("toggle-manual-payment").addEventListener("click", function () {
+          document.getElementById("manual-payment-form").hidden = false;
+          this.hidden = true;
+        });
+      </script>
+    {% else %}
+      <p class="empty-state">Bạn không có quyền tạo thanh toán cho hóa đơn này.</p>
+    {% endif %}
+  </aside>
+</div>
 {% endblock %}

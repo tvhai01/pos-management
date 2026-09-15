@@ -1555,6 +1555,134 @@ th {
   }
 }
 
+/* Order builder (create form) and order hub (detail/payment) — generic
+   7:3 two-column layout, independent of the .workspace-* shell (no
+   sidebar/inspector semantics needed for these two pages). */
+.builder-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(260px, 3fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .builder-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Live search-as-you-type box (customer/product pickers). */
+.search-box {
+  position: relative;
+}
+
+.search-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.search-result-item {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  color: #27364d;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid #eef1f5;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.search-result-item:last-child {
+  border-bottom: 0;
+}
+
+.search-result-item:hover,
+.search-result-item:focus {
+  background: #f4f8ff;
+}
+
+.search-result-empty {
+  padding: 0.6rem 0.75rem;
+  color: #8a95a5;
+  font-size: 0.8rem;
+}
+
+/* Selected-customer card + order cart table (orders/form.html). */
+.selected-card {
+  padding: 0.85rem;
+  background: #f4f8ff;
+  border: 1px solid #b9cff8;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.selected-card .selected-card-title {
+  margin: 0 0 0.2rem;
+  color: #17315d;
+  font-weight: 650;
+}
+
+.selected-card .selected-card-clear {
+  margin-top: 0.4rem;
+  color: var(--danger);
+  font-size: 0.78rem;
+}
+
+.order-summary-panel {
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #dfe5ed;
+  border-radius: 8px;
+}
+
+.order-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  font-size: 0.85rem;
+}
+
+.order-summary-row.is-total {
+  margin-top: 0.4rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #e5eaf0;
+  font-weight: 650;
+}
+
+/* Payment panel (orders/detail.html — step 2 of the order flow). */
+.payment-panel {
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #dfe5ed;
+  border-radius: 8px;
+}
+
+.payment-method-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.payment-qr-box {
+  text-align: center;
+}
+
+.payment-qr-box img {
+  max-width: 220px;
+  margin: 0.5rem auto;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #14161a;
