@@ -1,13 +1,30 @@
 {% extends "dashboard/base.html" %}
 {% load humanize %}
-{% block title %}{{ invoice.invoice_number }}{% endblock %}
+{% block title %}{{ invoice.invoice_number }} — POS Management System{% endblock %}
 {% block content %}
 <div class="card">
-  <h1>{{ invoice.invoice_number }}</h1>
-  <p>Khách hàng: {{ invoice.customer.full_name }}</p>
-  <p>Tổng: <strong>{{ invoice.total_amount|floatformat:2|intcomma }} {{ invoice.currency }}</strong> | Đã trả: {{ paid_amount|floatformat:2|intcomma }} | Còn lại: {{ remaining_amount|floatformat:2|intcomma }}</p>
-  <p>Trạng thái hóa đơn: <strong>{{ invoice.status }}</strong></p>
-  {% if invoice.status == "DRAFT" %}<form method="post" action="{% url 'dashboard:invoice-pending' invoice.id %}">{% csrf_token %}<button class="btn" type="submit">Chuyển sang chờ thanh toán</button></form>{% endif %}
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Bán hàng</p>
+      <h1>{{ invoice.invoice_number }}</h1>
+      <p class="section-description">Khách hàng: {{ invoice.customer.full_name }}</p>
+    </div>
+    <div class="section-actions">
+      <span class="status-pill status-invoice-{{ invoice.status|lower }}">{{ invoice.get_status_display }}</span>
+    </div>
+  </div>
+
+  <p>
+    Tổng: <strong>{{ invoice.total_amount|floatformat:2|intcomma }} {{ invoice.currency }}</strong>
+    &nbsp;·&nbsp; Đã trả: {{ paid_amount|floatformat:2|intcomma }}
+    &nbsp;·&nbsp; Còn lại: {{ remaining_amount|floatformat:2|intcomma }}
+  </p>
+
+  {% if invoice.status == "DRAFT" %}
+    <form method="post" action="{% url 'dashboard:invoice-pending' invoice.id %}">
+      {% csrf_token %}<button class="btn" type="submit">Chuyển sang chờ thanh toán</button>
+    </form>
+  {% endif %}
   {% if invoice.status == "PENDING_PAYMENT" %}
     <div class="payment-actions">
       <form method="post" action="{% url 'dashboard:invoice-qr' invoice.id %}">{% csrf_token %}<button class="btn" type="submit">Thanh toán QR</button></form>
@@ -30,9 +47,39 @@
     </div>
   {% elif invoice.status == "PAID" %}
     <div class="payment-actions">
-      <span class="payment-status-success">Đã thanh toán xong.</span>
+      <span class="status-pill status-success">Đã thanh toán xong.</span>
     </div>
   {% endif %}
 </div>
-<div class="card"><h2>Lịch sử thanh toán</h2><table><thead><tr><th>Thời gian</th><th>Provider</th><th>Số tiền</th><th>Trạng thái</th><th>Nội dung</th></tr></thead><tbody>{% for transaction in transactions %}<tr><td>{{ transaction.created_at }}</td><td>{{ transaction.provider }}</td><td>{{ transaction.amount|floatformat:2|intcomma }} {{ transaction.currency }}</td><td>{{ transaction.status }}</td><td>{{ transaction.transaction_content }}</td></tr>{% empty %}<tr><td colspan="5">Chưa có giao dịch.</td></tr>{% endfor %}</tbody></table></div>
+
+<div class="card" style="margin-top:1.5rem">
+  <p class="eyebrow">Lịch sử</p>
+  <h2>Lịch sử thanh toán</h2>
+  <div class="table-scroll">
+    <table class="workspace-table">
+      <thead>
+        <tr>
+          <th>Thời gian</th>
+          <th>Provider</th>
+          <th>Số tiền</th>
+          <th>Trạng thái</th>
+          <th>Nội dung</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for transaction in transactions %}
+          <tr>
+            <td>{{ transaction.created_at }}</td>
+            <td>{{ transaction.provider }}</td>
+            <td><strong>{{ transaction.amount|floatformat:2|intcomma }} {{ transaction.currency }}</strong></td>
+            <td>{{ transaction.status }}</td>
+            <td>{{ transaction.transaction_content }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="empty-state">Chưa có giao dịch.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

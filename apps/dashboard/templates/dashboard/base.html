@@ -5,12 +5,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}POS Management System{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'dashboard/style.css' %}?v=workspace-8">
+    <link rel="stylesheet" href="{% static 'dashboard/style.css' %}?v=refactor-ui-1">
 </head>
 <body>
   {% if user.is_authenticated %}
+  <input type="checkbox" id="nav-toggle" class="nav-toggle-input">
   <nav class="navbar">
     <a class="brand" href="{% url 'dashboard:index' %}">POS Management System</a>
+    <label for="nav-toggle" class="nav-toggle" aria-label="Mở menu">☰</label>
     <div class="nav-user">
       <span>{{ user.full_name|default:user.email }}</span>
       <form method="post" action="{% url 'dashboard:logout' %}">
@@ -19,12 +21,21 @@
       </form>
     </div>
   </nav>
+  <nav class="module-nav" aria-label="Điều hướng module">
+    <a class="module-nav-item {% if active_module == 'home' %}is-active{% endif %}" href="{% url 'dashboard:index' %}">Trang chủ</a>
+    {% for module in nav_modules %}
+      {% if module.available %}
+        <a class="module-nav-item {% if active_module == module.key %}is-active{% endif %}"
+           href="{% url module.url_name %}">{{ module.name }}</a>
+      {% endif %}
+    {% endfor %}
+  </nav>
   {% endif %}
 
   <div class="page {% block page_class %}{% endblock %}">
     {% if messages %}
       {% for message in messages %}
-        <div class="alert {% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %}">
+        <div class="alert alert-{{ message.tags|default:'success' }}">
           {{ message }}
         </div>
       {% endfor %}

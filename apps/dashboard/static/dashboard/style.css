@@ -64,6 +64,69 @@ a:hover {
   font-size: 0.9rem;
 }
 
+/* Persistent secondary nav — every authenticated page, links to every
+   module the current user holds view access to (apps.dashboard.nav). */
+.nav-toggle-input {
+  display: none;
+}
+.nav-toggle {
+  display: none;
+  order: 2;
+  padding: 0.35rem 0.6rem;
+  color: var(--text);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.module-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 1.5rem;
+}
+.module-nav-item {
+  padding: 0.4rem 0.7rem;
+  color: var(--text-muted);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.module-nav-item:hover {
+  color: var(--text);
+  background: var(--bg);
+  text-decoration: none;
+}
+.module-nav-item.is-active {
+  color: #fff;
+  background: var(--primary);
+}
+@media (max-width: 720px) {
+  .nav-toggle {
+    display: block;
+  }
+  .navbar {
+    flex-wrap: wrap;
+  }
+  .navbar .nav-user {
+    order: 3;
+    width: 100%;
+    margin-top: 0.5rem;
+    justify-content: space-between;
+  }
+  .module-nav {
+    display: none;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .nav-toggle-input:checked ~ .module-nav {
+    display: flex;
+  }
+}
+
 .page {
   max-width: 960px;
   margin: 2rem auto;
@@ -540,6 +603,9 @@ th {
 }
 .alert-success { background: #dcfce7; color: #166534; }
 .alert-error { background: #fee2e2; color: #991b1b; }
+.alert-warning { background: #fef3c7; color: #92400e; }
+.alert-info { background: #dbeafe; color: #1e40af; }
+.alert-debug { background: #f3f4f6; color: #374151; }
 
 .payment-actions {
   display: flex;
@@ -906,6 +972,65 @@ th {
 }
 
 .status-out {
+  color: #9a3434;
+  background: #fff7f7;
+  border-color: #e7c5c5;
+}
+
+/* Generic status-pill modifiers, reusable by any module (Customer, Staff,
+   Role, Order, Invoice, ...) — the .status-product-*/.status-low/.status-out
+   ones above stay Product/Inventory-specific naming, these are the shared
+   vocabulary for everything else. */
+.status-success {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.status-active {
+  color: #1d4ed8;
+  background: #f4f8ff;
+  border-color: #b9cff8;
+}
+.status-inactive {
+  color: #526175;
+  background: #f6f8fb;
+  border-color: #d8e0ea;
+}
+.status-warning {
+  color: #8a5900;
+  background: #fffaf0;
+  border-color: #ead8ad;
+}
+.status-danger,
+.status-blocked {
+  color: #9a3434;
+  background: #fff7f7;
+  border-color: #e7c5c5;
+}
+
+/* Order/Invoice lifecycle pills — same tint language, keyed to the
+   TextChoices values stored on Order.status / Invoice.status. */
+.status-order-draft,
+.status-invoice-draft {
+  color: #526175;
+  background: #f6f8fb;
+  border-color: #d8e0ea;
+}
+.status-order-pending_payment,
+.status-invoice-pending_payment {
+  color: #8a5900;
+  background: #fffaf0;
+  border-color: #ead8ad;
+}
+.status-order-paid,
+.status-order-completed,
+.status-invoice-paid {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.status-order-cancelled,
+.status-invoice-cancelled {
   color: #9a3434;
   background: #fff7f7;
   border-color: #e7c5c5;

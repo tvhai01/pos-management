@@ -1,6 +1,46 @@
 {% extends "dashboard/base.html" %}
 {% load humanize %}
-{% block title %}Đơn hàng{% endblock %}
+{% block title %}Đơn hàng — POS Management System{% endblock %}
 {% block content %}
-<div class="card"><h1>Đơn hàng</h1>{% if can_create %}<a class="btn" href="{% url 'dashboard:order-create' %}">Tạo đơn hàng</a>{% endif %}<table><thead><tr><th>Số đơn</th><th>Khách hàng</th><th>Tổng</th><th>Trạng thái</th><th></th></tr></thead><tbody>{% for order in orders %}<tr><td>{{ order.order_number }}</td><td>{{ order.customer.full_name }}</td><td>{{ order.total_amount|floatformat:2|intcomma }} {{ order.currency }}</td><td>{{ order.status }}</td><td><a class="btn" href="{% url 'dashboard:order-detail' order.id %}">Chi tiết</a></td></tr>{% empty %}<tr><td colspan="5">Chưa có đơn hàng.</td></tr>{% endfor %}</tbody></table></div>
+<div class="card">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Bán hàng</p>
+      <h1>Đơn hàng</h1>
+      <p class="section-description">Chọn sản phẩm hiện có, tạo đơn và theo dõi thanh toán.</p>
+    </div>
+    {% if can_create %}
+      <div class="section-actions">
+        <a class="btn" href="{% url 'dashboard:order-create' %}">+ Tạo đơn hàng</a>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="table-scroll">
+    <table class="workspace-table">
+      <thead>
+        <tr>
+          <th>Số đơn</th>
+          <th>Khách hàng</th>
+          <th>Tổng tiền</th>
+          <th>Trạng thái</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+          <tr class="selectable-row">
+            <td><a class="row-select-link" href="{% url 'dashboard:order-detail' order.id %}"><strong>{{ order.order_number }}</strong></a></td>
+            <td>{{ order.customer.full_name }}</td>
+            <td><strong>{{ order.total_amount|floatformat:2|intcomma }} {{ order.currency }}</strong></td>
+            <td><span class="status-pill status-order-{{ order.status|lower }}">{{ order.get_status_display }}</span></td>
+            <td><a href="{% url 'dashboard:order-detail' order.id %}">Chi tiết</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="empty-state">Chưa có đơn hàng.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

@@ -43,6 +43,7 @@ from apps.dashboard.forms import (
     StaffForm,
     StockMovementForm,
 )
+from apps.dashboard.nav import NAV_MODULES
 from apps.inventory.constants import StockStatus
 from apps.inventory.exceptions import (
     InsufficientStockError,
@@ -139,73 +140,32 @@ def index(request: HttpRequest) -> HttpResponse:
 
     GET /
     """
+    user = _authenticated_user(request)
     modules: list[dict[str, Any]] = [
         {
-            "name": "Khách hàng",
-            "description": "Tạo, cập nhật, tìm kiếm, xoá mềm khách hàng.",
-            "url_name": "dashboard:customer-list",
+            "name": module["name"],
+            "description": module["description"],
+            "url_name": module["url_name"],
             "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "customer"
+                user, "view", module["resource"]
             ),
-        },
-        {
-            "name": "Sản phẩm",
-            "description": "Quản lý sản phẩm, danh mục, giá và trạng thái kinh doanh.",
-            "url_name": "dashboard:product-list",
-            "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "product"
-            ),
-        },
-        {
-            "name": "Kho hàng",
-            "description": "Theo dõi tồn, nhập, xuất và điều chỉnh số lượng.",
-            "url_name": "dashboard:inventory-list",
-            "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "inventory"
-            ),
-        },
-        {
-            "name": "Hóa đơn và thanh toán",
-            "description": "Theo dõi hóa đơn, QR payment và lịch sử giao dịch.",
-            "url_name": "dashboard:invoice-list",
-            "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "invoice"
-            ),
-        },
-        {
-            "name": "Đơn hàng",
-            "description": "Chọn sản phẩm hiện có, tạo đơn và theo dõi thanh toán.",
-            "url_name": "dashboard:order-list",
-            "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "order"
-            ),
-        },
-        {
-            "name": "Nhân viên",
-            "description": "Tạo tài khoản nhân viên và gán vai trò (role).",
-            "url_name": "dashboard:staff-list",
-            "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "user"
-            ),
-        },
-        {
-            "name": "Báo cáo",
-            "description": "Doanh thu, sản phẩm bán chạy, tồn kho, thanh toán, "
-            "khách hàng.",
-            "url_name": "dashboard:report-dashboard",
-            "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "report"
-            ),
-        },
+        }
+        for module in NAV_MODULES
+    ]
+    modules.append(
         {
             "name": "Django Admin",
             "description": "Trang quản trị dữ liệu trực tiếp (mọi model).",
             "url_name": None,
             "url": "/admin/",
             "available": request.user.is_staff,
-        },
-    ]
-    return render(request, "dashboard/index.html", {"modules": modules})
+        }
+    )
+    return render(
+        request,
+        "dashboard/index.html",
+        {"modules": modules, "active_module": "home"},
+    )
 
 
 # =============================================================================
@@ -230,6 +190,7 @@ def customer_list(request: HttpRequest) -> HttpResponse:
         request,
         "dashboard/customers/list.html",
         {
+            "active_module": "customer",
             "page_obj": page_obj,
             "search": search,
             "status": status,
@@ -364,6 +325,7 @@ def staff_list(request: HttpRequest) -> HttpResponse:
         request,
         "dashboard/staff/list.html",
         {
+            "active_module": "user",
             "page_obj": page_obj,
             "search": search,
             "is_active": is_active,
@@ -554,6 +516,7 @@ def role_list(request: HttpRequest) -> HttpResponse:
         request,
         "dashboard/roles/list.html",
         {
+            "active_module": "user",
             "roles": roles,
             "can_create": PermissionSelector.user_has_permission(
                 _authenticated_user(request), "create", "role"
@@ -814,6 +777,7 @@ def category_list(request: HttpRequest) -> HttpResponse:
         request,
         "dashboard/products/categories/list.html",
         {
+            "active_module": "product",
             "categories": paginator.get_page(request.GET.get("page")),
             "search": search,
             "has_products": has_products,
@@ -1085,6 +1049,7 @@ def order_list(request: HttpRequest) -> HttpResponse:
         request,
         "dashboard/orders/list.html",
         {
+            "active_module": "order",
             "orders": orders,
             "can_create": PermissionSelector.user_has_permission(
                 _authenticated_user(request), "create", "order"
@@ -1188,6 +1153,7 @@ def order_detail(request: HttpRequest, order_id: UUID) -> HttpResponse:
         request,
         "dashboard/orders/detail.html",
         {
+            "active_module": "order",
             "order": order,
             "invoice": invoice,
             "payments": payments,
@@ -1210,7 +1176,7 @@ def invoice_list(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "dashboard/invoices/list.html",
-        {"invoices": invoices, "search": search},
+        {"invoices": invoices, "search": search, "active_module": "invoice"},
     )
 
 
@@ -1231,6 +1197,7 @@ def invoice_detail(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
         request,
         "dashboard/invoices/detail.html",
         {
+            "active_module": "invoice",
             "invoice": invoice,
             "payments": payments,
             "transactions": transactions,
@@ -1388,7 +1355,7 @@ def report_dashboard(request: HttpRequest) -> HttpResponse:
     GET /reports/
     """
     form = _report_filter(request)
-    context: dict[str, Any] = {"form": form}
+    context: dict[str, Any] = {"form": form, "active_module": "report"}
     if form.is_valid():
         date_from = form.cleaned_data["date_from"]
         date_to = form.cleaned_data["date_to"]

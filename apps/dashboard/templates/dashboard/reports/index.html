@@ -4,7 +4,9 @@
 
 {% block content %}
 <div class="card">
+  <p class="eyebrow">Vận hành</p>
   <h1 style="margin-top:0">Báo cáo</h1>
+  <p class="section-description">Doanh thu, sản phẩm bán chạy, tồn kho, thanh toán, khách hàng.</p>
 
   {% if form.non_field_errors %}
     <div class="alert alert-error">
@@ -147,10 +149,10 @@
     <thead><tr><th>SKU</th><th>Sản phẩm</th><th>Tồn hiện tại</th><th>Ngưỡng thấp</th><th>Trạng thái</th></tr></thead>
     <tbody>
       {% for row in inventory_report.out_of_stock_products %}
-        <tr><td><strong>{{ row.product__sku }}</strong></td><td>{{ row.product__name }}</td><td>0</td><td>{{ row.low_stock_threshold|floatformat:"-3" }}</td><td><span class="badge" style="background:#fee2e2;color:#991b1b">Hết hàng</span></td></tr>
+        <tr><td><strong>{{ row.product__sku }}</strong></td><td>{{ row.product__name }}</td><td>0</td><td>{{ row.low_stock_threshold|floatformat:"-3" }}</td><td><span class="status-pill status-danger">Hết hàng</span></td></tr>
       {% endfor %}
       {% for row in inventory_report.low_stock_products %}
-        <tr><td><strong>{{ row.product__sku }}</strong></td><td>{{ row.product__name }}</td><td>{{ row.quantity|floatformat:"-3" }}</td><td>{{ row.low_stock_threshold|floatformat:"-3" }}</td><td><span class="badge" style="background:#fef3c7;color:#92400e">Sắp hết</span></td></tr>
+        <tr><td><strong>{{ row.product__sku }}</strong></td><td>{{ row.product__name }}</td><td>{{ row.quantity|floatformat:"-3" }}</td><td>{{ row.low_stock_threshold|floatformat:"-3" }}</td><td><span class="status-pill status-warning">Sắp hết</span></td></tr>
       {% empty %}
         {% if not inventory_report.out_of_stock_products %}
           <tr><td colspan="5" class="text-muted">Không có sản phẩm nào hết hàng hoặc sắp hết.</td></tr>

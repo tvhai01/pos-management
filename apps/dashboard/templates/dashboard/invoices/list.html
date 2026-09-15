@@ -1,12 +1,49 @@
 {% extends "dashboard/base.html" %}
 {% load humanize %}
-{% block title %}Hóa đơn{% endblock %}
+{% block title %}Hóa đơn — POS Management System{% endblock %}
 {% block content %}
 <div class="card">
-  <h1>Hóa đơn</h1>
-  <form method="get"><input name="search" value="{{ search }}" placeholder="Tìm số hóa đơn"><button class="btn" type="submit">Tìm</button></form>
-  <table><thead><tr><th>Số hóa đơn</th><th>Khách hàng</th><th>Tổng</th><th>Trạng thái</th><th></th></tr></thead><tbody>
-  {% for invoice in invoices %}<tr><td>{{ invoice.invoice_number }}</td><td>{{ invoice.customer.full_name }}</td><td>{{ invoice.total_amount|floatformat:2|intcomma }} {{ invoice.currency }}</td><td>{{ invoice.status }}</td><td><a class="btn" href="{% url 'dashboard:invoice-detail' invoice.id %}">Chi tiết</a></td></tr>{% empty %}<tr><td colspan="5">Chưa có hóa đơn.</td></tr>{% endfor %}
-  </tbody></table>
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Bán hàng</p>
+      <h1>Hóa đơn</h1>
+      <p class="section-description">Theo dõi hóa đơn, QR payment và lịch sử giao dịch.</p>
+    </div>
+  </div>
+
+  <form class="filter-bar" method="get" aria-label="Tìm hóa đơn" style="grid-template-columns:minmax(190px,1.4fr) auto">
+    <label class="search-field">
+      <span class="sr-only">Tìm hóa đơn</span>
+      <input type="search" name="search" placeholder="Tìm theo số hóa đơn..." value="{{ search }}">
+    </label>
+    <button type="submit" class="btn btn-secondary">Tìm</button>
+  </form>
+
+  <div class="table-scroll">
+    <table class="workspace-table">
+      <thead>
+        <tr>
+          <th>Số hóa đơn</th>
+          <th>Khách hàng</th>
+          <th>Tổng tiền</th>
+          <th>Trạng thái</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for invoice in invoices %}
+          <tr class="selectable-row">
+            <td><a class="row-select-link" href="{% url 'dashboard:invoice-detail' invoice.id %}"><strong>{{ invoice.invoice_number }}</strong></a></td>
+            <td>{{ invoice.customer.full_name }}</td>
+            <td><strong>{{ invoice.total_amount|floatformat:2|intcomma }} {{ invoice.currency }}</strong></td>
+            <td><span class="status-pill status-invoice-{{ invoice.status|lower }}">{{ invoice.get_status_display }}</span></td>
+            <td><a href="{% url 'dashboard:invoice-detail' invoice.id %}">Chi tiết</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="empty-state">Chưa có hóa đơn.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}
