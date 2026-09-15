@@ -1,9 +1,20 @@
 {% extends "dashboard/base.html" %}
 {% block title %}{{ title }} — POS Management System{% endblock %}
-
 {% block content %}
-<div class="card" style="max-width:700px;margin:auto">
-  <h1>{{ title }}</h1>
+<div class="card" style="max-width:700px;margin:2rem auto">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Sản phẩm</p>
+      <h1>{{ title }}</h1>
+    </div>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-error">
+      {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+    </div>
+  {% endif %}
+
   <form method="post">
     {% csrf_token %}
     {% if category %}

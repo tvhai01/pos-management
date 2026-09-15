@@ -43,6 +43,7 @@ from apps.dashboard.forms import (
     StaffForm,
     StockMovementForm,
 )
+from apps.dashboard.nav import NAV_MODULES
 from apps.inventory.constants import StockStatus
 from apps.inventory.exceptions import (
     InsufficientStockError,
@@ -58,6 +59,7 @@ from apps.invoices.services import InvoiceService
 from apps.orders.constants import OrderStatus
 from apps.orders.selectors import OrderSelector
 from apps.orders.services import OrderService
+from apps.payments.constants import PaymentStatus
 from apps.payments.models import Payment
 from apps.payments.services import PaymentService
 from apps.product.constants import ProductStatus
@@ -139,73 +141,32 @@ def index(request: HttpRequest) -> HttpResponse:
 
     GET /
     """
+    user = _authenticated_user(request)
     modules: list[dict[str, Any]] = [
         {
-            "name": "Khách hàng",
-            "description": "Tạo, cập nhật, tìm kiếm, xoá mềm khách hàng.",
-            "url_name": "dashboard:customer-list",
+            "name": module["name"],
+            "description": module["description"],
+            "url_name": module["url_name"],
             "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "customer"
+                user, "view", module["resource"]
             ),
-        },
-        {
-            "name": "Sản phẩm",
-            "description": "Quản lý sản phẩm, danh mục, giá và trạng thái kinh doanh.",
-            "url_name": "dashboard:product-list",
-            "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "product"
-            ),
-        },
-        {
-            "name": "Kho hàng",
-            "description": "Theo dõi tồn, nhập, xuất và điều chỉnh số lượng.",
-            "url_name": "dashboard:inventory-list",
-            "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "inventory"
-            ),
-        },
-        {
-            "name": "Hóa đơn và thanh toán",
-            "description": "Theo dõi hóa đơn, QR payment và lịch sử giao dịch.",
-            "url_name": "dashboard:invoice-list",
-            "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "invoice"
-            ),
-        },
-        {
-            "name": "Đơn hàng",
-            "description": "Chọn sản phẩm hiện có, tạo đơn và theo dõi thanh toán.",
-            "url_name": "dashboard:order-list",
-            "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "order"
-            ),
-        },
-        {
-            "name": "Nhân viên",
-            "description": "Tạo tài khoản nhân viên và gán vai trò (role).",
-            "url_name": "dashboard:staff-list",
-            "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "user"
-            ),
-        },
-        {
-            "name": "Báo cáo",
-            "description": "Doanh thu, sản phẩm bán chạy, tồn kho, thanh toán, "
-            "khách hàng.",
-            "url_name": "dashboard:report-dashboard",
-            "available": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "report"
-            ),
-        },
+        }
+        for module in NAV_MODULES
+    ]
+    modules.append(
         {
             "name": "Django Admin",
             "description": "Trang quản trị dữ liệu trực tiếp (mọi model).",
             "url_name": None,
             "url": "/admin/",
             "available": request.user.is_staff,
-        },
-    ]
-    return render(request, "dashboard/index.html", {"modules": modules})
+        }
+    )
+    return render(
+        request,
+        "dashboard/index.html",
+        {"modules": modules, "active_module": "home"},
+    )
 
 
 # =============================================================================
@@ -230,6 +191,7 @@ def customer_list(request: HttpRequest) -> HttpResponse:
         request,
         "dashboard/customers/list.html",
         {
+            "active_module": "customer",
             "page_obj": page_obj,
             "search": search,
             "status": status,
@@ -364,6 +326,7 @@ def staff_list(request: HttpRequest) -> HttpResponse:
         request,
         "dashboard/staff/list.html",
         {
+            "active_module": "user",
             "page_obj": page_obj,
             "search": search,
             "is_active": is_active,
@@ -554,6 +517,7 @@ def role_list(request: HttpRequest) -> HttpResponse:
         request,
         "dashboard/roles/list.html",
         {
+            "active_module": "user",
             "roles": roles,
             "can_create": PermissionSelector.user_has_permission(
                 _authenticated_user(request), "create", "role"
@@ -696,13 +660,6 @@ def product_list(request: HttpRequest) -> HttpResponse:
             "sort": sort,
             "selected_product": selected_product,
             "active_module": "product",
-            "can_view_product": True,
-            "can_view_inventory": PermissionSelector.user_has_permission(
-                user, "view", "inventory"
-            ),
-            "can_view_report": PermissionSelector.user_has_permission(
-                user, "view", "report"
-            ),
             "can_create": PermissionSelector.user_has_permission(
                 user, "create", "product"
             ),
@@ -814,6 +771,7 @@ def category_list(request: HttpRequest) -> HttpResponse:
         request,
         "dashboard/products/categories/list.html",
         {
+            "active_module": "product",
             "categories": paginator.get_page(request.GET.get("page")),
             "search": search,
             "has_products": has_products,
@@ -974,13 +932,6 @@ def inventory_list(request: HttpRequest) -> HttpResponse:
             "selected_inventory": selected_inventory,
             "recent_movements": recent_movements,
             "active_module": "inventory",
-            "can_view_product": PermissionSelector.user_has_permission(
-                user, "view", "product"
-            ),
-            "can_view_inventory": True,
-            "can_view_report": PermissionSelector.user_has_permission(
-                user, "view", "report"
-            ),
             "can_create_movement": PermissionSelector.user_has_permission(
                 user, "create", "inventory"
             ),
@@ -1018,13 +969,6 @@ def inventory_detail(request: HttpRequest, product_id: UUID) -> HttpResponse:
                 _authenticated_user(request), "update", "inventory"
             ),
             "active_module": "inventory",
-            "can_view_product": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "product"
-            ),
-            "can_view_inventory": True,
-            "can_view_report": PermissionSelector.user_has_permission(
-                _authenticated_user(request), "view", "report"
-            ),
         },
     )
 
@@ -1085,6 +1029,7 @@ def order_list(request: HttpRequest) -> HttpResponse:
         request,
         "dashboard/orders/list.html",
         {
+            "active_module": "order",
             "orders": orders,
             "can_create": PermissionSelector.user_has_permission(
                 _authenticated_user(request), "create", "order"
@@ -1093,23 +1038,67 @@ def order_list(request: HttpRequest) -> HttpResponse:
     )
 
 
+@require_permission("view", "customer")
+def customer_search(request: HttpRequest) -> JsonResponse:
+    """Live customer search for the order builder's customer picker.
+
+    GET /orders/customers/search/?q=
+    """
+    query = request.GET.get("q", "").strip()
+    customers = CustomerSelector.search_customers(search=query)[:8]
+    return JsonResponse(
+        {
+            "results": [
+                {
+                    "id": str(customer.id),
+                    "label": f"{customer.full_name} — {customer.phone}",
+                }
+                for customer in customers
+            ]
+        }
+    )
+
+
+@require_permission("view", "product")
+def product_search(request: HttpRequest) -> JsonResponse:
+    """Live product search for the order builder's product picker.
+
+    GET /orders/products/search/?q=
+    """
+    query = request.GET.get("q", "").strip()
+    products = ProductSelector.search_products(search=query, status="active")[:8]
+    return JsonResponse(
+        {
+            "results": [
+                {
+                    "id": str(product.id),
+                    "label": f"{product.name} — {product.sku}",
+                    "price": str(product.selling_price),
+                }
+                for product in products
+            ]
+        }
+    )
+
+
 @require_permission("create", "order")
 def order_create(request: HttpRequest) -> HttpResponse:
-    customers = CustomerSelector.get_all_customers()
-    products = ProductSelector.get_all_products().filter(status="active")
+    """Step 1 of the order flow — customer + products only.
+
+    Payment is now a separate step handled on the order's own detail page
+    (see order_detail / invoice_sepay / invoice_manual) rather than being
+    bundled into this form.
+    """
     if request.method == "POST":
         try:
             customer_id = request.POST.get("customer_id", "").strip()
             customer = CustomerSelector.get_customer_by_id(customer_id)
             product_ids = request.POST.getlist("product_id")
             quantities = request.POST.getlist("quantity")
-            payment_method = (request.POST.get("payment_method") or "MOMO").upper()
             if customer is None:
                 raise ValueError("Vui lòng chọn khách hàng hợp lệ.")
             if not product_ids or len(product_ids) != len(quantities):
                 raise ValueError("Vui lòng chọn ít nhất một sản phẩm.")
-            if payment_method not in {"MOMO", "SEPAY", "PAYPAL", "MANUAL"}:
-                raise ValueError("Phương thức thanh toán không hợp lệ.")
             order_items = []
             for product_id, quantity in zip(product_ids, quantities, strict=True):
                 try:
@@ -1118,61 +1107,24 @@ def order_create(request: HttpRequest) -> HttpResponse:
                     raise ValueError("Số lượng sản phẩm phải là số nguyên.") from exc
                 if normalized_quantity < 1:
                     raise ValueError("Số lượng sản phẩm phải lớn hơn 0.")
-                order_items.append({"product_id": product_id, "quantity": normalized_quantity})
-            order, invoice = OrderService.create_order(
+                order_items.append(
+                    {"product_id": product_id, "quantity": normalized_quantity}
+                )
+            order, _invoice = OrderService.create_order(
                 customer=customer,
                 items=order_items,
                 created_by=_authenticated_user(request),
             )
-            if payment_method == "MANUAL":
-                PaymentService.create_manual_payment(
-                    invoice.id,
-                    amount=invoice.total_amount,
-                    reference=f"AUTO-{invoice.invoice_number}",
-                    note="Thanh toán tại quầy",
-                    created_by=_authenticated_user(request),
-                )
-                messages.success(request, f"Đã tạo đơn {order.order_number} và ghi nhận thanh toán thủ công.")
-                return redirect("dashboard:invoice-detail", invoice_id=invoice.id)
-            if payment_method == "PAYPAL":
-                InvoiceService.transition(invoice.id, InvoiceStatus.PENDING_PAYMENT, _authenticated_user(request))
-                payment, checkout = PaymentService.create_paypal_payment(
-                    invoice.id,
-                    created_by=_authenticated_user(request),
-                    return_url=request.build_absolute_uri(reverse("dashboard:invoice-return", kwargs={"invoice_id": invoice.id})),
-                    cancel_url=request.build_absolute_uri(reverse("dashboard:invoice-return", kwargs={"invoice_id": invoice.id})),
-                )
-                messages.success(request, f"Đã tạo đơn {order.order_number} và chuyển sang thanh toán PayPal.")
-                return render(
-                    request,
-                    "dashboard/invoices/checkout.html",
-                    {"checkout": checkout, "invoice": invoice, "payment": payment},
-                )
-            if payment_method == "SEPAY":
-                InvoiceService.transition(invoice.id, InvoiceStatus.PENDING_PAYMENT, _authenticated_user(request))
-                return_url = request.build_absolute_uri(reverse("dashboard:invoice-return", kwargs={"invoice_id": invoice.id}))
-                payment, checkout = PaymentService.create_sepay_payment(
-                    invoice.id,
-                    created_by=_authenticated_user(request),
-                    return_url=return_url,
-                )
-                messages.success(request, f"Đã tạo đơn {order.order_number} và chuyển sang thanh toán SePay.")
-                return render(
-                    request,
-                    "dashboard/invoices/checkout.html",
-                    {"checkout": checkout, "invoice": invoice, "payment": payment},
-                )
-            InvoiceService.transition(invoice.id, InvoiceStatus.PENDING_PAYMENT, _authenticated_user(request))
-            messages.success(request, f"Đã tạo đơn {order.order_number} và chuyển sang thanh toán MoMo.")
-            return redirect("dashboard:invoice-qr", invoice_id=invoice.id)
+            messages.success(
+                request,
+                f"Đã tạo đơn {order.order_number}. Tiếp tục tạo thông tin "
+                "thanh toán bên dưới.",
+            )
+            return redirect("dashboard:order-detail", order_id=order.id)
         except (KeyError, ValueError) as exc:
             logger.warning("dashboard.order_create_validation_failed error=%s", exc)
             messages.error(request, str(exc) or "Dữ liệu đơn hàng không hợp lệ.")
-    return render(
-        request,
-        "dashboard/orders/form.html",
-        {"customers": customers, "products": products},
-    )
+    return render(request, "dashboard/orders/form.html", {})
 
 
 @require_permission("view", "order")
@@ -1184,16 +1136,38 @@ def order_detail(request: HttpRequest, order_id: UUID) -> HttpResponse:
     invoice = getattr(order, "invoice", None)
     payments = invoice.payments.all().order_by("-created_at") if invoice else []
     transactions = invoice.transactions.all().order_by("-created_at") if invoice else []
+    active_sepay_payment = None
+    latest_success_payment = None
+    if invoice is not None:
+        active_sepay_payment = (
+            invoice.payments.filter(
+                payment_method="SEPAY",
+                status__in=[PaymentStatus.PENDING, PaymentStatus.PROCESSING],
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        latest_success_payment = (
+            invoice.payments.filter(status=PaymentStatus.SUCCESS)
+            .order_by("-processed_at")
+            .first()
+        )
     return render(
         request,
         "dashboard/orders/detail.html",
         {
+            "active_module": "order",
             "order": order,
             "invoice": invoice,
             "payments": payments,
             "transactions": transactions,
+            "active_sepay_payment": active_sepay_payment,
+            "latest_success_payment": latest_success_payment,
             "can_update": PermissionSelector.user_has_permission(
                 _authenticated_user(request), "update", "order"
+            ),
+            "can_pay": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "create", "payment"
             ),
             "order_statuses": OrderStatus.choices,
         },
@@ -1210,7 +1184,7 @@ def invoice_list(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "dashboard/invoices/list.html",
-        {"invoices": invoices, "search": search},
+        {"invoices": invoices, "search": search, "active_module": "invoice"},
     )
 
 
@@ -1227,15 +1201,37 @@ def invoice_detail(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
         (payment.amount for payment in payments if payment.status == "SUCCESS"),
         Decimal("0"),
     )
+    active_sepay_payment = (
+        invoice.payments.filter(
+            payment_method="SEPAY",
+            status__in=[PaymentStatus.PENDING, PaymentStatus.PROCESSING],
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    latest_success_payment = (
+        invoice.payments.filter(status=PaymentStatus.SUCCESS)
+        .order_by("-processed_at")
+        .first()
+    )
     return render(
         request,
         "dashboard/invoices/detail.html",
         {
+            "active_module": "invoice",
             "invoice": invoice,
             "payments": payments,
             "transactions": transactions,
             "paid_amount": paid_amount,
             "remaining_amount": max(invoice.total_amount - paid_amount, Decimal("0")),
+            "active_sepay_payment": active_sepay_payment,
+            "latest_success_payment": latest_success_payment,
+            "can_pay": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "create", "payment"
+            ),
+            "can_transition": PermissionSelector.user_has_permission(
+                _authenticated_user(request), "update", "invoice"
+            ),
         },
     )
 
@@ -1280,6 +1276,51 @@ def invoice_qr(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
     return redirect("dashboard:invoice-detail", invoice_id=invoice_id)
 
 
+def _invoice_redirect_target(invoice: Invoice) -> HttpResponse:
+    """Send the user to the order hub if the invoice has one, else the invoice page."""
+    if invoice.order_id:
+        return redirect("dashboard:order-detail", order_id=invoice.order_id)
+    return redirect("dashboard:invoice-detail", invoice_id=invoice.id)
+
+
+@require_POST
+@require_permission("create", "payment")
+def invoice_sepay(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
+    """Create a SePay/VietQR payment for an invoice — the order hub's QR step.
+
+    POST /invoices/{invoice_id}/sepay/
+    """
+    try:
+        invoice = InvoiceSelector.get_by_id(invoice_id)
+        if invoice is None:
+            raise Invoice.DoesNotExist
+        return_url = request.build_absolute_uri(
+            reverse("dashboard:invoice-return", kwargs={"invoice_id": invoice_id})
+        )
+        payment, checkout = PaymentService.create_sepay_payment(
+            invoice_id,
+            created_by=_authenticated_user(request),
+            return_url=return_url,
+        )
+        # create_sepay_payment only returns the checkout dict transiently —
+        # persist the QR/deeplink so this page can redisplay it on the next
+        # GET without re-issuing a new SePay checkout session each time.
+        payment.metadata = {
+            **payment.metadata,
+            "qr_url": checkout.get("qr_url", ""),
+            "deeplink_url": checkout.get("deeplink_url", ""),
+        }
+        payment.save(update_fields=["metadata"])
+    except (Invoice.DoesNotExist, ValueError) as exc:
+        messages.error(request, f"Không thể tạo thanh toán VietQR: {exc}")
+        return redirect("dashboard:invoice-detail", invoice_id=invoice_id)
+    except Exception:
+        logger.exception("dashboard.invoice_sepay_failed invoice=%s", invoice_id)
+        messages.error(request, "Không thể tạo thanh toán VietQR. Vui lòng thử lại.")
+        return redirect("dashboard:invoice-detail", invoice_id=invoice_id)
+    return _invoice_redirect_target(invoice)
+
+
 @require_permission("view", "invoice")
 def invoice_return(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
     """Sync invoice state after returning from a payment provider and send user back to the order."""
@@ -1295,20 +1336,42 @@ def invoice_return(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
                     payer_id=payer_id,
                     created_by=_authenticated_user(request),
                 )
-                messages.success(request, "Thanh toán PayPal đã được xác nhận và hóa đơn đã được thanh toán.")
+                messages.success(
+                    request,
+                    "Thanh toán PayPal đã được xác nhận và hóa đơn đã được thanh toán.",
+                )
             except ValueError as exc:
-                logger.warning("dashboard.paypal_capture_failed invoice=%s token=%s error=%s", invoice_id, token, exc)
+                logger.warning(
+                    "dashboard.paypal_capture_failed invoice=%s token=%s error=%s",
+                    invoice_id,
+                    token,
+                    exc,
+                )
                 messages.warning(request, str(exc))
         if invoice is not None:
             successful_amount = sum(
-                (payment.amount for payment in invoice.payments.all() if payment.status == PaymentStatus.SUCCESS),
+                (
+                    payment.amount
+                    for payment in invoice.payments.all()
+                    if payment.status == PaymentStatus.SUCCESS
+                ),
                 Decimal("0"),
             )
-            if successful_amount >= invoice.total_amount and invoice.status != InvoiceStatus.PAID:
-                InvoiceService.transition(invoice_id, InvoiceStatus.PAID, _authenticated_user(request))
-                messages.success(request, "Thanh toán đã được đồng bộ và hóa đơn đã được thanh toán.")
+            if (
+                successful_amount >= invoice.total_amount
+                and invoice.status != InvoiceStatus.PAID
+            ):
+                InvoiceService.transition(
+                    invoice_id, InvoiceStatus.PAID, _authenticated_user(request)
+                )
+                messages.success(
+                    request, "Thanh toán đã được đồng bộ và hóa đơn đã được thanh toán."
+                )
             elif invoice.status == InvoiceStatus.PENDING_PAYMENT:
-                messages.info(request, "Hóa đơn đang chờ thanh toán. Đơn hàng đã được cập nhật lại.")
+                messages.info(
+                    request,
+                    "Hóa đơn đang chờ thanh toán. Đơn hàng đã được cập nhật lại.",
+                )
         if invoice is not None and invoice.order_id:
             return redirect("dashboard:order-detail", order_id=invoice.order_id)
     except (Invoice.DoesNotExist, ValueError):
@@ -1336,6 +1399,7 @@ def payment_status(request: HttpRequest, payment_id: UUID) -> JsonResponse:
 @require_POST
 @require_permission("approve", "payment")
 def invoice_manual(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
+    invoice = InvoiceSelector.get_by_id(invoice_id)
     try:
         amount = Decimal(request.POST.get("amount", "0"))
         PaymentService.create_manual_payment(
@@ -1345,15 +1409,19 @@ def invoice_manual(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
             note=request.POST.get("note", ""),
             created_by=_authenticated_user(request),
         )
-        messages.success(request, "Đã ghi nhận thanh toán thủ công.")
+        messages.success(request, "Đã xác nhận thanh toán thủ công thành công.")
     except (Invoice.DoesNotExist, InvalidOperation, ValueError):
         messages.error(request, "Dữ liệu thanh toán thủ công không hợp lệ.")
+    if invoice is not None:
+        return _invoice_redirect_target(invoice)
     return redirect("dashboard:invoice-detail", invoice_id=invoice_id)
 
 
 @require_POST
 @require_permission("update", "payment")
 def payment_cancel(request: HttpRequest, payment_id: UUID) -> HttpResponse:
+    payment = Payment.objects.select_related("invoice").filter(id=payment_id).first()
+    invoice = payment.invoice if payment is not None else None
     try:
         PaymentService.cancel_payment(
             payment_id, cancelled_by=_authenticated_user(request)
@@ -1361,6 +1429,9 @@ def payment_cancel(request: HttpRequest, payment_id: UUID) -> HttpResponse:
         messages.success(request, "Đã hủy thanh toán.")
     except (Payment.DoesNotExist, ValueError):
         messages.error(request, "Không thể hủy thanh toán này.")
+    if invoice is not None:
+        return _invoice_redirect_target(invoice)
+    return redirect("dashboard:invoice-list")
 
 
 # =============================================================================
@@ -1388,7 +1459,7 @@ def report_dashboard(request: HttpRequest) -> HttpResponse:
     GET /reports/
     """
     form = _report_filter(request)
-    context: dict[str, Any] = {"form": form}
+    context: dict[str, Any] = {"form": form, "active_module": "report"}
     if form.is_valid():
         date_from = form.cleaned_data["date_from"]
         date_to = form.cleaned_data["date_to"]

@@ -55,13 +55,80 @@ a:hover {
 .navbar form {
   display: inline;
 }
-.navbar button.link-button {
+.link-button {
   background: none;
   border: none;
   color: var(--primary);
   cursor: pointer;
   padding: 0;
+  font: inherit;
   font-size: 0.9rem;
+}
+.link-button:hover {
+  text-decoration: underline;
+}
+
+/* Persistent secondary nav — every authenticated page, links to every
+   module the current user holds view access to (apps.dashboard.nav). */
+.nav-toggle-input {
+  display: none;
+}
+.nav-toggle {
+  display: none;
+  order: 2;
+  padding: 0.35rem 0.6rem;
+  color: var(--text);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.module-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 1.5rem;
+}
+.module-nav-item {
+  padding: 0.4rem 0.7rem;
+  color: var(--text-muted);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.module-nav-item:hover {
+  color: var(--text);
+  background: var(--bg);
+  text-decoration: none;
+}
+.module-nav-item.is-active {
+  color: #fff;
+  background: var(--primary);
+}
+@media (max-width: 720px) {
+  .nav-toggle {
+    display: block;
+  }
+  .navbar {
+    flex-wrap: wrap;
+  }
+  .navbar .nav-user {
+    order: 3;
+    width: 100%;
+    margin-top: 0.5rem;
+    justify-content: space-between;
+  }
+  .module-nav {
+    display: none;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .nav-toggle-input:checked ~ .module-nav {
+    display: flex;
+  }
 }
 
 .page {
@@ -78,8 +145,7 @@ a:hover {
 }
 
 .order-page {
-  max-width: 900px;
-  margin: 0 auto;
+  max-width: 100%;
 }
 .order-hero {
   display: flex;
@@ -540,6 +606,9 @@ th {
 }
 .alert-success { background: #dcfce7; color: #166534; }
 .alert-error { background: #fee2e2; color: #991b1b; }
+.alert-warning { background: #fef3c7; color: #92400e; }
+.alert-info { background: #dbeafe; color: #1e40af; }
+.alert-debug { background: #f3f4f6; color: #374151; }
 
 .payment-actions {
   display: flex;
@@ -639,38 +708,15 @@ th {
   border-radius: 10px;
 }
 
-.workspace-sidebar {
-  padding: 1rem 0.65rem;
-  background: #f1f4f8;
-  border-right: 1px solid #dfe5ed;
-}
-
-.workspace-nav-item {
-  display: block;
-  margin-bottom: 0.35rem;
-  padding: 0.72rem 0.8rem;
-  color: #536174;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.workspace-nav-item:hover {
-  color: #17315d;
-  background: #e8edf4;
-  text-decoration: none;
-}
-
-.workspace-nav-item.is-active {
-  color: #fff;
-  background: #2563eb;
-  border-color: #2563eb;
+/* Product/Inventory now rely on the persistent top module-nav
+   (base.html) instead of their own sidebar — no second column needed. */
+.workspace-shell-no-sidebar {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .workspace-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(210px, 250px);
+  grid-template-columns: minmax(0, 7fr) minmax(240px, 3fr);
   gap: 0.85rem;
   min-width: 0;
   padding: 0.85rem;
@@ -906,6 +952,65 @@ th {
 }
 
 .status-out {
+  color: #9a3434;
+  background: #fff7f7;
+  border-color: #e7c5c5;
+}
+
+/* Generic status-pill modifiers, reusable by any module (Customer, Staff,
+   Role, Order, Invoice, ...) — the .status-product-*/.status-low/.status-out
+   ones above stay Product/Inventory-specific naming, these are the shared
+   vocabulary for everything else. */
+.status-success {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.status-active {
+  color: #1d4ed8;
+  background: #f4f8ff;
+  border-color: #b9cff8;
+}
+.status-inactive {
+  color: #526175;
+  background: #f6f8fb;
+  border-color: #d8e0ea;
+}
+.status-warning {
+  color: #8a5900;
+  background: #fffaf0;
+  border-color: #ead8ad;
+}
+.status-danger,
+.status-blocked {
+  color: #9a3434;
+  background: #fff7f7;
+  border-color: #e7c5c5;
+}
+
+/* Order/Invoice lifecycle pills — same tint language, keyed to the
+   TextChoices values stored on Order.status / Invoice.status. */
+.status-order-draft,
+.status-invoice-draft {
+  color: #526175;
+  background: #f6f8fb;
+  border-color: #d8e0ea;
+}
+.status-order-pending_payment,
+.status-invoice-pending_payment {
+  color: #8a5900;
+  background: #fffaf0;
+  border-color: #ead8ad;
+}
+.status-order-paid,
+.status-order-completed,
+.status-invoice-paid {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.status-order-cancelled,
+.status-invoice-cancelled {
   color: #9a3434;
   background: #fff7f7;
   border-color: #e7c5c5;
@@ -1401,19 +1506,6 @@ th {
     display: block;
   }
 
-  .workspace-sidebar {
-    display: flex;
-    gap: 0.35rem;
-    overflow-x: auto;
-    border-right: 0;
-    border-bottom: 1px solid #dfe5ed;
-  }
-
-  .workspace-nav-item {
-    flex: 0 0 auto;
-    margin: 0;
-  }
-
   .workspace-content {
     padding: 0.65rem;
   }
@@ -1464,6 +1556,150 @@ th {
     width: 100%;
     text-align: center;
   }
+}
+
+/* Order builder (create form) and order hub (detail/payment) — generic
+   7:3 two-column layout, independent of the .workspace-* shell (no
+   sidebar/inspector semantics needed for these two pages). */
+.builder-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(260px, 3fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .builder-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Live search-as-you-type box (customer/product pickers). */
+.search-box {
+  position: relative;
+}
+
+.search-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.search-result-item {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  color: #27364d;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid #eef1f5;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.search-result-item:last-child {
+  border-bottom: 0;
+}
+
+.search-result-item:hover,
+.search-result-item:focus {
+  background: #f4f8ff;
+}
+
+.search-result-empty {
+  padding: 0.6rem 0.75rem;
+  color: #8a95a5;
+  font-size: 0.8rem;
+}
+
+/* Selected-customer card + order cart table (orders/form.html). */
+.selected-card {
+  padding: 0.85rem;
+  background: #f4f8ff;
+  border: 1px solid #b9cff8;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.selected-card .selected-card-title {
+  margin: 0 0 0.2rem;
+  color: #17315d;
+  font-weight: 650;
+}
+
+.selected-card .selected-card-clear {
+  margin-top: 0.4rem;
+  color: var(--danger);
+  font-size: 0.78rem;
+}
+
+.order-summary-panel {
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #dfe5ed;
+  border-radius: 8px;
+}
+
+.order-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  font-size: 0.85rem;
+}
+
+.order-summary-row.is-total {
+  margin-top: 0.4rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #e5eaf0;
+  font-weight: 650;
+}
+
+/* Payment panel (orders/detail.html — step 2 of the order flow). */
+.payment-panel {
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #dfe5ed;
+  border-radius: 8px;
+}
+
+.payment-method-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* The narrow payment panel (~3/10 of the page) can't fit
+   .manual-payment-form's normal 4-column grid (built for a full-width
+   card) — stack every field instead, and give the revealed form some
+   visual separation from the buttons above it. */
+.payment-panel .manual-payment-form {
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid #e5eaf0;
+}
+
+.payment-panel .manual-payment-form .btn {
+  width: 100%;
+}
+
+.payment-qr-box {
+  text-align: center;
+}
+
+.payment-qr-box img {
+  max-width: 220px;
+  margin: 0.5rem auto;
 }
 
 @media (prefers-color-scheme: dark) {

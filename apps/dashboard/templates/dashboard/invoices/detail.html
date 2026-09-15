@@ -1,21 +1,155 @@
 {% extends "dashboard/base.html" %}
 {% load humanize %}
-{% block title %}{{ invoice.invoice_number }}{% endblock %}
+{% block title %}{{ invoice.invoice_number }} — POS Management System{% endblock %}
+{% block page_class %}workspace-page{% endblock %}
 {% block content %}
-<div class="card">
-  <h1>{{ invoice.invoice_number }}</h1>
-  <p>Khách hàng: {{ invoice.customer.full_name }}</p>
-  <p>Tổng: <strong>{{ invoice.total_amount|floatformat:2|intcomma }} {{ invoice.currency }}</strong> | Đã trả: {{ paid_amount|floatformat:2|intcomma }} | Còn lại: {{ remaining_amount|floatformat:2|intcomma }}</p>
-  <p>Trạng thái hóa đơn: <strong>{{ invoice.status }}</strong></p>
-  {% if invoice.status == "DRAFT" %}<form method="post" action="{% url 'dashboard:invoice-pending' invoice.id %}">{% csrf_token %}<button class="btn" type="submit">Chuyển sang chờ thanh toán</button></form>{% endif %}
-  {% if invoice.status == "PENDING_PAYMENT" %}
-    <div class="payment-actions">
-      <form method="post" action="{% url 'dashboard:invoice-qr' invoice.id %}">{% csrf_token %}<button class="btn" type="submit">Thanh toán QR</button></form>
-      <form class="manual-payment-form" method="post" action="{% url 'dashboard:invoice-manual' invoice.id %}">
+<div class="builder-layout">
+  <div>
+    <div class="card">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Bán hàng</p>
+          <h1>{{ invoice.invoice_number }}</h1>
+          <p class="section-description">Khách hàng: {{ invoice.customer.full_name }}</p>
+        </div>
+        <div class="section-actions">
+          <span class="status-pill status-invoice-{{ invoice.status|lower }}">{{ invoice.get_status_display }}</span>
+        </div>
+      </div>
+
+      <p>
+        Tổng: <strong>{{ invoice.total_amount|floatformat:2|intcomma }} {{ invoice.currency }}</strong>
+        &nbsp;·&nbsp; Đã trả: {{ paid_amount|floatformat:2|intcomma }}
+        &nbsp;·&nbsp; Còn lại: {{ remaining_amount|floatformat:2|intcomma }}
+      </p>
+    </div>
+
+    <div class="card" style="margin-top:1.5rem">
+      <p class="eyebrow">Lịch sử</p>
+      <h2>Lịch sử thanh toán</h2>
+      <div class="table-scroll">
+        <table class="workspace-table">
+          <thead>
+            <tr>
+              <th>Thời gian</th>
+              <th>Provider</th>
+              <th>Số tiền</th>
+              <th>Trạng thái</th>
+              <th>Nội dung</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for transaction in transactions %}
+              <tr>
+                <td>{{ transaction.created_at }}</td>
+                <td>{{ transaction.provider }}</td>
+                <td><strong>{{ transaction.amount|floatformat:2|intcomma }} {{ transaction.currency }}</strong></td>
+                <td>{{ transaction.status }}</td>
+                <td>{{ transaction.transaction_content }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="empty-state">Chưa có giao dịch.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <aside class="payment-panel">
+  <p class="eyebrow">Thanh toán</p>
+  <h2 style="margin:0 0 0.75rem">Thông tin thanh toán</h2>
+
+  {% if invoice.status == "DRAFT" %}
+    <p class="section-description">Hóa đơn đang ở trạng thái nháp. Chuyển sang chờ thanh toán để mở các phương thức thanh toán.</p>
+    {% if can_transition %}
+      <form method="post" action="{% url 'dashboard:invoice-pending' invoice.id %}">
+        {% csrf_token %}<button class="btn btn-block" type="submit">Chuyển sang chờ thanh toán</button>
+      </form>
+    {% endif %}
+
+  {% elif invoice.status == "PAID" %}
+    <div class="status-pill status-success" style="margin-bottom:0.75rem">Đã thanh toán thành công</div>
+    {% if latest_success_payment %}
+      <div class="detail-list">
+        <div><dt>Số tiền</dt><dd>{{ latest_success_payment.amount|floatformat:2|intcomma }} {{ latest_success_payment.currency }}</dd></div>
+        <div><dt>Phương thức</dt><dd>{{ latest_success_payment.get_payment_method_display }}</dd></div>
+        <div><dt>Thời gian</dt><dd>{{ latest_success_payment.processed_at }}</dd></div>
+        <div><dt>Mã tham chiếu</dt><dd>{{ latest_success_payment.reference }}</dd></div>
+      </div>
+    {% endif %}
+
+  {% elif active_sepay_payment %}
+    <p class="section-description">Quét mã VietQR bên dưới để thanh toán qua SePay.</p>
+    <div class="payment-qr-box">
+      {% if active_sepay_payment.metadata.qr_url %}
+        <img src="{{ active_sepay_payment.metadata.qr_url }}" alt="Mã VietQR thanh toán">
+      {% endif %}
+      {% if active_sepay_payment.metadata.deeplink_url %}
+        <p><a class="btn btn-secondary" href="{{ active_sepay_payment.metadata.deeplink_url }}" target="_blank" rel="noopener">Mở ứng dụng ngân hàng</a></p>
+      {% endif %}
+      <p id="payment-status" class="checkout-status">Đang chờ xác nhận thanh toán...</p>
+    </div>
+    {% if can_pay %}
+      <form method="post" action="{% url 'dashboard:payment-cancel' active_sepay_payment.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-quiet btn-block">Hủy và chọn phương thức khác</button>
+      </form>
+    {% endif %}
+    <script>
+      (function () {
+        const statusUrl = "{% url 'dashboard:payment-status' active_sepay_payment.id %}";
+        const statusElement = document.getElementById("payment-status");
+        let checks = 0;
+        const maxChecks = 120;
+
+        function checkPayment() {
+          fetch(statusUrl, {headers: {"X-Requested-With": "XMLHttpRequest"}})
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.status === "SUCCESS" || data.invoice_status === "PAID") {
+                statusElement.textContent = "Thanh toán thành công. Đang tải lại...";
+                window.setTimeout(function () { window.location.reload(); }, 800);
+                return;
+              }
+              if (["FAILED", "CANCELLED", "EXPIRED"].includes(data.status)) {
+                statusElement.textContent = "Thanh toán chưa thành công (" + data.status + "). Đang tải lại...";
+                window.setTimeout(function () { window.location.reload(); }, 1500);
+                return;
+              }
+              checks += 1;
+              if (checks < maxChecks) {
+                window.setTimeout(checkPayment, 3000);
+              } else {
+                statusElement.textContent = "Chưa nhận được xác nhận. Vui lòng tải lại trang để kiểm tra.";
+              }
+            })
+            .catch(function () {
+              checks += 1;
+              if (checks < maxChecks) {
+                window.setTimeout(checkPayment, 5000);
+              }
+            });
+        }
+
+        checkPayment();
+      }());
+    </script>
+
+  {% elif invoice.status == "PENDING_PAYMENT" and can_pay %}
+    <p class="section-description">Chọn phương thức thanh toán cho hóa đơn {{ invoice.invoice_number }} ({{ invoice.total_amount|floatformat:2|intcomma }} {{ invoice.currency }}).</p>
+    <div class="payment-method-choice">
+      <form method="post" action="{% url 'dashboard:invoice-sepay' invoice.id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-block">Thanh toán VietQR (SePay)</button>
+      </form>
+
+      <button type="button" class="btn btn-secondary btn-block" id="toggle-manual-payment">Thanh toán thủ công</button>
+      <form method="post" action="{% url 'dashboard:invoice-manual' invoice.id %}" id="manual-payment-form" class="manual-payment-form" hidden>
         {% csrf_token %}
         <label class="payment-field">
           <span>Số tiền</span>
-          <input name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" required>
+          <input name="amount" type="number" min="0.01" step="0.01" value="{{ invoice.total_amount }}" required>
         </label>
         <label class="payment-field">
           <span>Mã tham chiếu</span>
@@ -25,14 +159,18 @@
           <span>Ghi chú</span>
           <input name="note" placeholder="Không bắt buộc">
         </label>
-        <button class="btn" type="submit">Thanh toán thủ công</button>
+        <button class="btn btn-block" type="submit">Xác nhận đã thu tiền</button>
       </form>
     </div>
-  {% elif invoice.status == "PAID" %}
-    <div class="payment-actions">
-      <span class="payment-status-success">Đã thanh toán xong.</span>
-    </div>
+    <script>
+      document.getElementById("toggle-manual-payment").addEventListener("click", function () {
+        document.getElementById("manual-payment-form").hidden = false;
+        this.hidden = true;
+      });
+    </script>
+  {% else %}
+    <p class="empty-state">Bạn không có quyền tạo thanh toán cho hóa đơn này.</p>
   {% endif %}
+  </aside>
 </div>
-<div class="card"><h2>Lịch sử thanh toán</h2><table><thead><tr><th>Thời gian</th><th>Provider</th><th>Số tiền</th><th>Trạng thái</th><th>Nội dung</th></tr></thead><tbody>{% for transaction in transactions %}<tr><td>{{ transaction.created_at }}</td><td>{{ transaction.provider }}</td><td>{{ transaction.amount|floatformat:2|intcomma }} {{ transaction.currency }}</td><td>{{ transaction.status }}</td><td>{{ transaction.transaction_content }}</td></tr>{% empty %}<tr><td colspan="5">Chưa có giao dịch.</td></tr>{% endfor %}</tbody></table></div>
 {% endblock %}

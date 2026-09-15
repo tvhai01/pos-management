@@ -78,6 +78,16 @@ urlpatterns: list = [
     path("orders/", views.order_list, name="order-list"),
     path("orders/create/", views.order_create, name="order-create"),
     path("orders/<uuid:order_id>/", views.order_detail, name="order-detail"),
+    path(
+        "orders/customers/search/",
+        views.customer_search,
+        name="order-customer-search",
+    ),
+    path(
+        "orders/products/search/",
+        views.product_search,
+        name="order-product-search",
+    ),
     path("invoices/<uuid:invoice_id>/", views.invoice_detail, name="invoice-detail"),
     path(
         "invoices/<uuid:invoice_id>/pending/",
@@ -87,6 +97,11 @@ urlpatterns: list = [
     path("invoices/<uuid:invoice_id>/return/", views.invoice_return, name="invoice-return"),
     path("payments/<uuid:payment_id>/status/", views.payment_status, name="payment-status"),
     path("invoices/<uuid:invoice_id>/qr/", views.invoice_qr, name="invoice-qr"),
+    path(
+        "invoices/<uuid:invoice_id>/sepay/",
+        views.invoice_sepay,
+        name="invoice-sepay",
+    ),
     path(
         "invoices/<uuid:invoice_id>/manual/",
         views.invoice_manual,

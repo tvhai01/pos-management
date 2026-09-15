@@ -2,6 +2,7 @@
 {% block title %}{% if is_edit %}Sửa nhân viên{% else %}Thêm nhân viên{% endif %} — POS Management System{% endblock %}
 {% block content %}
 <div class="card">
+  <p class="eyebrow">Con người &amp; phân quyền</p>
   <h1>{% if is_edit %}Sửa nhân viên — {{ staff_user.full_name }}{% else %}Thêm nhân viên{% endif %}</h1>
 
   {% if form.non_field_errors %}

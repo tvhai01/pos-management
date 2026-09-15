@@ -2,7 +2,12 @@
 {% block title %}{% if is_edit %}Sửa khách hàng{% else %}Thêm khách hàng{% endif %} — POS Management System{% endblock %}
 {% block content %}
 <div class="card">
-  <h1>{% if is_edit %}Sửa khách hàng — {{ customer.full_name }}{% else %}Thêm khách hàng{% endif %}</h1>
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Quan hệ khách hàng</p>
+      <h1>{% if is_edit %}Sửa khách hàng — {{ customer.full_name }}{% else %}Thêm khách hàng{% endif %}</h1>
+    </div>
+  </div>
 
   {% if form.non_field_errors %}
     <div class="alert alert-error">

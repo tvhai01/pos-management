@@ -3,14 +3,15 @@
 
 {% block content %}
 <div class="card">
+  <p class="eyebrow">Tổng quan</p>
   <h1>Chào, {{ request.user.full_name|default:request.user.email }}</h1>
-  <p class="text-muted">Chọn một chức năng bên dưới để bắt đầu thao tác.</p>
+  <p class="section-description">Chọn một chức năng bên dưới để bắt đầu thao tác.</p>
 
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1.5rem;margin-top:1.5rem">
+  <div class="module-grid" style="margin-top:1.5rem">
     {% for module in modules %}
-      <div class="card" style="border:1px solid #e5e7eb;border-radius:8px;padding:1.25rem">
+      <div class="module-card">
         <h3>{{ module.name }}</h3>
-        <p class="text-muted" style="font-size:.9rem">{{ module.description }}</p>
+        <p>{{ module.description }}</p>
         {% if module.available %}
           {% if module.url_name %}
             <a class="btn" href="{% url module.url_name %}">Mở</a>
@@ -18,7 +19,7 @@
             <a class="btn" href="{{ module.url }}">Mở</a>
           {% endif %}
         {% else %}
-          <span class="text-muted">Bạn chưa có quyền truy cập</span>
+          <span class="disabled">Bạn chưa có quyền truy cập</span>
         {% endif %}
       </div>
     {% endfor %}
