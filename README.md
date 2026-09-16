@@ -230,8 +230,13 @@ trang 403.
 | `GET` | `/inventory/{product_id}/` | Chi tiết tồn và lịch sử biến động | Session | `view:inventory` |
 | `POST` | `/inventory/{product_id}/movement/` | Nhập/xuất/điều chỉnh tồn kho | Session | `create:inventory` |
 | `POST` | `/inventory/{product_id}/threshold/` | Cập nhật ngưỡng tồn thấp | Session | `update:inventory` |
-| `GET` | `/reports/` | Tổng quan báo cáo doanh thu, sản phẩm bán chạy, tồn kho, thanh toán, khách hàng (lọc theo khoảng thời gian, kèm chart + nút "Phân tích AI" mỗi báo cáo) | Session | `view:report` |
-| `GET` | `/reports/revenue/export/` | Xuất CSV báo cáo doanh thu | Session | `export:report` |
+| `GET` | `/reports/` | Tổng quan báo cáo doanh thu, sản phẩm bán chạy, tồn kho, thanh toán, khách hàng — mỗi báo cáo có bộ lọc khoảng thời gian (Top N/sắp xếp thêm ở Sản phẩm bán chạy & Khách hàng) riêng, submit qua AJAX vào đúng `*_fragment` bên dưới nên chỉ báo cáo đó re-render, kèm chart + nút "Phân tích AI" mỗi báo cáo | Session | `view:report` |
+| `GET` | `/reports/revenue/fragment/` | HTML fragment báo cáo doanh thu sau khi lọc (dùng bởi nút "Lọc", không phải trang đầy đủ) | Session | `view:report` |
+| `GET` | `/reports/products/top-selling/fragment/` | HTML fragment báo cáo sản phẩm bán chạy sau khi lọc | Session | `view:report` |
+| `GET` | `/reports/inventory/fragment/` | HTML fragment báo cáo tồn kho sau khi lọc | Session | `view:report` |
+| `GET` | `/reports/payments/breakdown/fragment/` | HTML fragment báo cáo phương thức thanh toán sau khi lọc | Session | `view:report` |
+| `GET` | `/reports/customers/fragment/` | HTML fragment báo cáo khách hàng sau khi lọc | Session | `view:report` |
+| `GET` | `/reports/revenue/export/` | Xuất CSV báo cáo doanh thu (dùng đúng giá trị đang có trong ô lọc tại thời điểm bấm, không cần bấm "Lọc" trước) | Session | `export:report` |
 | `GET` | `/reports/revenue/insights/` | JSON: AI Insight (nhận xét + đề xuất) cho báo cáo doanh thu | Session | `view:report` |
 | `GET` | `/reports/products/top-selling/export/` | Xuất CSV báo cáo sản phẩm bán chạy | Session | `export:report` |
 | `GET` | `/reports/products/top-selling/insights/` | JSON: AI Insight cho báo cáo sản phẩm bán chạy | Session | `view:report` |

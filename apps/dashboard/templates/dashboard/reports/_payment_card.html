@@ -1,0 +1,62 @@
+{% load humanize %}
+<div class="toolbar" style="margin-bottom:1rem">
+  <h2 style="margin:0">Phương thức thanh toán</h2>
+</div>
+<form class="report-filter" method="get" action="{% url 'dashboard:report-payment-breakdown-fragment' %}" data-report-form="payment">
+  <div class="report-filter__fields">
+    <div class="report-filter__field">
+      <label for="{{ card.form.date_from.id_for_label }}">{{ card.form.date_from.label }}</label>
+      {{ card.form.date_from }}
+    </div>
+    <div class="report-filter__field">
+      <label for="{{ card.form.date_to.id_for_label }}">{{ card.form.date_to.label }}</label>
+      {{ card.form.date_to }}
+    </div>
+  </div>
+  <div class="report-filter__actions">
+    <button type="submit" class="btn report-filter__submit">Lọc</button>
+    {% if can_export %}
+      <button type="submit" formaction="{% url 'dashboard:report-payment-breakdown-export' %}" class="btn btn-secondary">Xuất CSV</button>
+    {% endif %}
+  </div>
+</form>
+{% if card.errors %}
+  <div class="alert alert-error">{{ card.errors|join:", " }}</div>
+{% endif %}
+{% if card.valid %}
+<div class="chart-container chart-container--compact">
+  <canvas id="paymentMethodChart"></canvas>
+</div>
+{{ card.data.by_payment_method|json_script:"payment-method-chart-data" }}
+<h3>Theo phương thức</h3>
+<table>
+  <thead><tr><th>Phương thức</th><th>Tổng giao dịch</th><th>Tiền thu (thành công)</th></tr></thead>
+  <tbody>
+    {% for row in card.data.by_payment_method %}
+      <tr><td>{{ row.key }}</td><td>{{ row.total_count }}</td><td>{{ row.success_amount|floatformat:0|intcomma }} đ</td></tr>
+    {% empty %}
+      <tr><td colspan="3" class="text-muted">Không có giao dịch nào.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<h3>Theo nhà cung cấp</h3>
+<table>
+  <thead><tr><th>Nhà cung cấp</th><th>Tổng giao dịch</th><th>Tiền thu (thành công)</th></tr></thead>
+  <tbody>
+    {% for row in card.data.by_provider %}
+      <tr><td>{{ row.key }}</td><td>{{ row.total_count }}</td><td>{{ row.success_amount|floatformat:0|intcomma }} đ</td></tr>
+    {% empty %}
+      <tr><td colspan="3" class="text-muted">Không có giao dịch nào.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div class="ai-insight" data-url="{% url 'dashboard:report-payment-breakdown-insights' %}?date_from={{ card.date_from|date:'Y-m-d' }}&date_to={{ card.date_to|date:'Y-m-d' }}">
+  <button type="button" class="btn btn-secondary ai-insight-btn">🔎 Phân tích AI</button>
+  <p class="ai-insight-error text-muted" hidden>Không thể phân tích lúc này, thử lại sau.</p>
+  <div class="ai-insight-result" hidden>
+    <p class="ai-insight-summary"></p>
+    <ul class="ai-insight-recommendations"></ul>
+    <p class="ai-insight-source text-muted"></p>
+  </div>
+</div>
+{% endif %}

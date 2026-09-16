@@ -94,8 +94,16 @@ urlpatterns: list = [
         views.invoice_pending,
         name="invoice-pending",
     ),
-    path("invoices/<uuid:invoice_id>/return/", views.invoice_return, name="invoice-return"),
-    path("payments/<uuid:payment_id>/status/", views.payment_status, name="payment-status"),
+    path(
+        "invoices/<uuid:invoice_id>/return/",
+        views.invoice_return,
+        name="invoice-return",
+    ),
+    path(
+        "payments/<uuid:payment_id>/status/",
+        views.payment_status,
+        name="payment-status",
+    ),
     path("invoices/<uuid:invoice_id>/qr/", views.invoice_qr, name="invoice-qr"),
     path(
         "invoices/<uuid:invoice_id>/sepay/",
@@ -128,6 +136,31 @@ urlpatterns: list = [
         name="inventory-threshold",
     ),
     path("reports/", views.report_dashboard, name="report-dashboard"),
+    path(
+        "reports/revenue/fragment/",
+        views.report_revenue_fragment,
+        name="report-revenue-fragment",
+    ),
+    path(
+        "reports/products/top-selling/fragment/",
+        views.report_top_selling_fragment,
+        name="report-top-selling-fragment",
+    ),
+    path(
+        "reports/inventory/fragment/",
+        views.report_inventory_fragment,
+        name="report-inventory-fragment",
+    ),
+    path(
+        "reports/payments/breakdown/fragment/",
+        views.report_payment_breakdown_fragment,
+        name="report-payment-breakdown-fragment",
+    ),
+    path(
+        "reports/customers/fragment/",
+        views.report_customers_fragment,
+        name="report-customers-fragment",
+    ),
     path(
         "reports/revenue/export/",
         views.report_revenue_export,

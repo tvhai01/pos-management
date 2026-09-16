@@ -1,0 +1,56 @@
+{% load humanize %}
+<div class="toolbar" style="margin-bottom:1rem">
+  <h2 style="margin:0">Sản phẩm bán chạy</h2>
+</div>
+<form class="report-filter" method="get" action="{% url 'dashboard:report-top-selling-fragment' %}" data-report-form="top-selling">
+  <div class="report-filter__fields">
+    <div class="report-filter__field">
+      <label for="{{ card.form.date_from.id_for_label }}">{{ card.form.date_from.label }}</label>
+      {{ card.form.date_from }}
+    </div>
+    <div class="report-filter__field">
+      <label for="{{ card.form.date_to.id_for_label }}">{{ card.form.date_to.label }}</label>
+      {{ card.form.date_to }}
+    </div>
+    <div class="report-filter__field">
+      <label for="{{ card.form.top_n.id_for_label }}">{{ card.form.top_n.label }}</label>
+      {{ card.form.top_n }}
+    </div>
+    <div class="report-filter__field">
+      <label for="{{ card.form.sort_by.id_for_label }}">{{ card.form.sort_by.label }}</label>
+      {{ card.form.sort_by }}
+    </div>
+  </div>
+  <div class="report-filter__actions">
+    <button type="submit" class="btn report-filter__submit">Lọc</button>
+    {% if can_export %}
+      <button type="submit" formaction="{% url 'dashboard:report-top-selling-export' %}" class="btn btn-secondary">Xuất CSV</button>
+    {% endif %}
+  </div>
+</form>
+{% if card.errors %}
+  <div class="alert alert-error">{{ card.errors|join:", " }}</div>
+{% endif %}
+{% if card.valid %}
+<canvas id="topSellingChart" height="90"></canvas>
+{{ card.data|json_script:"top-selling-chart-data" }}
+<table>
+  <thead><tr><th>SKU</th><th>Sản phẩm</th><th>Số lượng bán</th><th>Doanh thu</th></tr></thead>
+  <tbody>
+    {% for row in card.data %}
+      <tr><td><strong>{{ row.product_sku }}</strong></td><td>{{ row.product_name }}</td><td>{{ row.total_quantity|floatformat:"-3" }}</td><td>{{ row.total_revenue|floatformat:0|intcomma }} đ</td></tr>
+    {% empty %}
+      <tr><td colspan="4" class="text-muted">Không có sản phẩm bán ra trong khoảng thời gian này.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div class="ai-insight" data-url="{% url 'dashboard:report-top-selling-insights' %}?date_from={{ card.date_from|date:'Y-m-d' }}&date_to={{ card.date_to|date:'Y-m-d' }}&top_n={{ card.top_n }}&sort_by={{ card.sort_by }}">
+  <button type="button" class="btn btn-secondary ai-insight-btn">🔎 Phân tích AI</button>
+  <p class="ai-insight-error text-muted" hidden>Không thể phân tích lúc này, thử lại sau.</p>
+  <div class="ai-insight-result" hidden>
+    <p class="ai-insight-summary"></p>
+    <ul class="ai-insight-recommendations"></ul>
+    <p class="ai-insight-source text-muted"></p>
+  </div>
+</div>
+{% endif %}
