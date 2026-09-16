@@ -35,13 +35,18 @@ from apps.dashboard.decorators import require_permission
 from apps.dashboard.forms import (
     CategoryForm,
     CustomerForm,
+    CustomerReportFilterForm,
+    InventoryReportFilterForm,
     LoginForm,
     LowStockThresholdForm,
+    PaymentBreakdownReportFilterForm,
     ProductUIForm,
-    ReportFilterForm,
+    ReportDateRangeForm,
+    RevenueReportFilterForm,
     RoleForm,
     StaffForm,
     StockMovementForm,
+    TopSellingReportFilterForm,
 )
 from apps.dashboard.nav import NAV_MODULES
 from apps.inventory.constants import StockStatus
@@ -1439,75 +1444,243 @@ def payment_cancel(request: HttpRequest, payment_id: UUID) -> HttpResponse:
 # =============================================================================
 
 
-def _report_filter(request: HttpRequest) -> ReportFilterForm:
-    """Bind and validate the shared Report filter from query params.
+def _report_filter[T: ReportDateRangeForm](
+    request: HttpRequest, form_class: type[T]
+) -> T:
+    """Bind and validate one report's own filter from query params.
 
     Always bound to `request.GET` (never `None`) — every field is optional,
-    so an empty querystring (first visit, no filters chosen yet) still runs
-    `ReportFilterForm.clean()` and resolves the default 30-day range, instead
-    of leaving the form "unbound" (which `is_valid()` always fails).
+    so an empty querystring still runs `clean()` and resolves the default
+    30-day range, instead of leaving the form "unbound" (which `is_valid()`
+    always fails).
     """
-    form = ReportFilterForm(request.GET)
+    form = form_class(request.GET)
     form.is_valid()
     return form
 
 
-@require_permission("view", "report")
-def report_dashboard(request: HttpRequest) -> HttpResponse:
-    """Render an overview of every Report type for the selected date range.
+def _default_filter[T: ReportDateRangeForm](form_class: type[T]) -> T:
+    """Bind to an empty querystring so `clean()` resolves the default range.
 
-    GET /reports/
+    Used for `report_dashboard`'s first paint, where no card has a filter
+    submitted yet — see that view's docstring for why cards no longer share
+    query params.
     """
-    form = _report_filter(request)
-    context: dict[str, Any] = {"form": form, "active_module": "report"}
-    if form.is_valid():
+    form = form_class({})
+    form.is_valid()
+    return form
+
+
+def _form_errors(form: ReportDateRangeForm) -> list[str]:
+    """Flatten every error message on a report filter form into one list.
+
+    `ReportDateRangeForm.clean()` attaches the inverted-range message to the
+    `date_from` field (not as a non-field error), so `non_field_errors()`
+    alone would miss it — each card's error banner needs every message
+    regardless of which field Django filed it under.
+    """
+    return [str(message) for messages in form.errors.values() for message in messages]
+
+
+def _card_form(
+    form: ReportDateRangeForm,
+) -> tuple[ReportDateRangeForm, bool, list[str]]:
+    """Validate a card's form; return (display_form, valid, errors).
+
+    On success, `display_form` is a fresh unbound copy pre-filled with the
+    *resolved* values, so its widgets show the resolved range/Top N instead
+    of echoing back a raw querystring. On failure, the original bound form
+    is kept instead, so the widgets keep showing exactly what the user
+    typed, next to the error.
+    """
+    valid = form.is_valid()
+    errors = _form_errors(form)
+    display_form = type(form)(initial=form.cleaned_data) if valid else form
+    return display_form, valid, errors
+
+
+def _revenue_card(form: RevenueReportFilterForm) -> dict[str, Any]:
+    """Build the Revenue card's template context from its own filter form."""
+    display_form, valid, errors = _card_form(form)
+    card: dict[str, Any] = {"form": display_form, "valid": valid, "errors": errors}
+    if valid:
+        date_from = form.cleaned_data["date_from"]
+        date_to = form.cleaned_data["date_to"]
+        card["date_from"] = date_from
+        card["date_to"] = date_to
+        card["data"] = ReportSelector.get_revenue_report(date_from, date_to)
+    return card
+
+
+def _top_selling_card(form: TopSellingReportFilterForm) -> dict[str, Any]:
+    """Build the Top-selling card's template context from its filter form."""
+    display_form, valid, errors = _card_form(form)
+    card: dict[str, Any] = {"form": display_form, "valid": valid, "errors": errors}
+    if valid:
         date_from = form.cleaned_data["date_from"]
         date_to = form.cleaned_data["date_to"]
         top_n = form.cleaned_data["top_n"]
         sort_by = form.cleaned_data["sort_by"]
-        # Re-render unbound with the *resolved* values (defaults filled in by
-        # clean()), so the widgets show what is actually displayed below —
-        # a bound form would otherwise echo back the raw (possibly empty)
-        # querystring instead of the resolved date range.
-        context["form"] = ReportFilterForm(
-            initial={
-                "date_from": date_from,
-                "date_to": date_to,
-                "top_n": top_n,
-                "sort_by": sort_by,
-            }
-        )
-        context.update(
+        card.update(
             {
                 "date_from": date_from,
                 "date_to": date_to,
                 "top_n": top_n,
                 "sort_by": sort_by,
-                "revenue": ReportSelector.get_revenue_report(date_from, date_to),
-                "top_selling_products": ReportSelector.get_top_selling_products(
-                    date_from, date_to, top_n, sort_by
-                ),
-                "inventory_report": ReportSelector.get_inventory_report(
-                    date_from, date_to
-                ),
-                "payment_breakdown": ReportSelector.get_payment_breakdown(
-                    date_from, date_to
-                ),
-                "customer_report": ReportSelector.get_customer_report(
-                    date_from, date_to, top_n
-                ),
-                "can_export": PermissionSelector.user_has_permission(
-                    _authenticated_user(request), "export", "report"
-                ),
             }
         )
+        card["data"] = ReportSelector.get_top_selling_products(
+            date_from, date_to, top_n, sort_by
+        )
+    return card
+
+
+def _inventory_card(form: InventoryReportFilterForm) -> dict[str, Any]:
+    """Build the Inventory card's template context from its filter form."""
+    display_form, valid, errors = _card_form(form)
+    card: dict[str, Any] = {"form": display_form, "valid": valid, "errors": errors}
+    if valid:
+        date_from = form.cleaned_data["date_from"]
+        date_to = form.cleaned_data["date_to"]
+        card["date_from"] = date_from
+        card["date_to"] = date_to
+        card["data"] = ReportSelector.get_inventory_report(date_from, date_to)
+    return card
+
+
+def _payment_card(form: PaymentBreakdownReportFilterForm) -> dict[str, Any]:
+    """Build the Payment-breakdown card's template context from its form."""
+    display_form, valid, errors = _card_form(form)
+    card: dict[str, Any] = {"form": display_form, "valid": valid, "errors": errors}
+    if valid:
+        date_from = form.cleaned_data["date_from"]
+        date_to = form.cleaned_data["date_to"]
+        card["date_from"] = date_from
+        card["date_to"] = date_to
+        card["data"] = ReportSelector.get_payment_breakdown(date_from, date_to)
+    return card
+
+
+def _customer_card(form: CustomerReportFilterForm) -> dict[str, Any]:
+    """Build the Customer card's template context from its own filter form."""
+    display_form, valid, errors = _card_form(form)
+    card: dict[str, Any] = {"form": display_form, "valid": valid, "errors": errors}
+    if valid:
+        date_from = form.cleaned_data["date_from"]
+        date_to = form.cleaned_data["date_to"]
+        top_n = form.cleaned_data["top_n"]
+        card.update({"date_from": date_from, "date_to": date_to, "top_n": top_n})
+        card["data"] = ReportSelector.get_customer_report(date_from, date_to, top_n)
+    return card
+
+
+def _can_export_report(request: HttpRequest) -> bool:
+    return PermissionSelector.user_has_permission(
+        _authenticated_user(request), "export", "report"
+    )
+
+
+@require_permission("view", "report")
+def report_dashboard(request: HttpRequest) -> HttpResponse:
+    """Render every Report card at its own default range.
+
+    GET /reports/
+
+    Each card (Revenue, Top-selling, Inventory, Payment breakdown, Customer)
+    is a self-contained fragment with its own filter form. Submitting one
+    card's "Lọc" button fetches the matching `report_*_fragment` view below
+    and swaps only that card's content in place — see the script at the
+    bottom of `dashboard/reports/index.html` — instead of reloading the
+    whole page. This view therefore never reads query params; first paint
+    is always each card's own default 30-day range, exactly what a fresh
+    `*_fragment` call with no filter would also return.
+    """
+    context = {
+        "active_module": "report",
+        "can_export": _can_export_report(request),
+        "revenue": _revenue_card(_default_filter(RevenueReportFilterForm)),
+        "top_selling": _top_selling_card(_default_filter(TopSellingReportFilterForm)),
+        "inventory": _inventory_card(_default_filter(InventoryReportFilterForm)),
+        "payment": _payment_card(_default_filter(PaymentBreakdownReportFilterForm)),
+        "customer": _customer_card(_default_filter(CustomerReportFilterForm)),
+    }
     return render(request, "dashboard/reports/index.html", context)
+
+
+@require_permission("view", "report")
+def report_revenue_fragment(request: HttpRequest) -> HttpResponse:
+    """Re-render just the Revenue card for its "Lọc" submit (AJAX).
+
+    GET /reports/revenue/fragment/
+    """
+    card = _revenue_card(_report_filter(request, RevenueReportFilterForm))
+    return render(
+        request,
+        "dashboard/reports/_revenue_card.html",
+        {"card": card, "can_export": _can_export_report(request)},
+    )
+
+
+@require_permission("view", "report")
+def report_top_selling_fragment(request: HttpRequest) -> HttpResponse:
+    """Re-render just the Top-selling card for its "Lọc" submit (AJAX).
+
+    GET /reports/products/top-selling/fragment/
+    """
+    card = _top_selling_card(_report_filter(request, TopSellingReportFilterForm))
+    return render(
+        request,
+        "dashboard/reports/_top_selling_card.html",
+        {"card": card, "can_export": _can_export_report(request)},
+    )
+
+
+@require_permission("view", "report")
+def report_inventory_fragment(request: HttpRequest) -> HttpResponse:
+    """Re-render just the Inventory card for its "Lọc" submit (AJAX).
+
+    GET /reports/inventory/fragment/
+    """
+    card = _inventory_card(_report_filter(request, InventoryReportFilterForm))
+    return render(
+        request,
+        "dashboard/reports/_inventory_card.html",
+        {"card": card, "can_export": _can_export_report(request)},
+    )
+
+
+@require_permission("view", "report")
+def report_payment_breakdown_fragment(request: HttpRequest) -> HttpResponse:
+    """Re-render just the Payment-breakdown card for its "Lọc" submit (AJAX).
+
+    GET /reports/payments/breakdown/fragment/
+    """
+    card = _payment_card(_report_filter(request, PaymentBreakdownReportFilterForm))
+    return render(
+        request,
+        "dashboard/reports/_payment_card.html",
+        {"card": card, "can_export": _can_export_report(request)},
+    )
+
+
+@require_permission("view", "report")
+def report_customers_fragment(request: HttpRequest) -> HttpResponse:
+    """Re-render just the Customer card for its "Lọc" submit (AJAX).
+
+    GET /reports/customers/fragment/
+    """
+    card = _customer_card(_report_filter(request, CustomerReportFilterForm))
+    return render(
+        request,
+        "dashboard/reports/_customer_card.html",
+        {"card": card, "can_export": _can_export_report(request)},
+    )
 
 
 @require_permission("export", "report")
 def report_revenue_export(request: HttpRequest) -> HttpResponse:
     """Export the revenue report as CSV."""
-    form = _report_filter(request)
+    form = _report_filter(request, RevenueReportFilterForm)
     if not form.is_valid():
         messages.error(request, "Khoảng thời gian không hợp lệ.")
         return redirect("dashboard:report-dashboard")
@@ -1521,7 +1694,7 @@ def report_revenue_export(request: HttpRequest) -> HttpResponse:
 @require_permission("export", "report")
 def report_top_selling_export(request: HttpRequest) -> HttpResponse:
     """Export the top-selling products report as CSV."""
-    form = _report_filter(request)
+    form = _report_filter(request, TopSellingReportFilterForm)
     if not form.is_valid():
         messages.error(request, "Khoảng thời gian không hợp lệ.")
         return redirect("dashboard:report-dashboard")
@@ -1540,7 +1713,7 @@ def report_top_selling_export(request: HttpRequest) -> HttpResponse:
 @require_permission("export", "report")
 def report_inventory_export(request: HttpRequest) -> HttpResponse:
     """Export the inventory report as CSV."""
-    form = _report_filter(request)
+    form = _report_filter(request, InventoryReportFilterForm)
     if not form.is_valid():
         messages.error(request, "Khoảng thời gian không hợp lệ.")
         return redirect("dashboard:report-dashboard")
@@ -1554,7 +1727,7 @@ def report_inventory_export(request: HttpRequest) -> HttpResponse:
 @require_permission("export", "report")
 def report_payment_breakdown_export(request: HttpRequest) -> HttpResponse:
     """Export the payment method/provider breakdown report as CSV."""
-    form = _report_filter(request)
+    form = _report_filter(request, PaymentBreakdownReportFilterForm)
     if not form.is_valid():
         messages.error(request, "Khoảng thời gian không hợp lệ.")
         return redirect("dashboard:report-dashboard")
@@ -1570,7 +1743,7 @@ def report_payment_breakdown_export(request: HttpRequest) -> HttpResponse:
 @require_permission("export", "report")
 def report_customers_export(request: HttpRequest) -> HttpResponse:
     """Export the customer report as CSV."""
-    form = _report_filter(request)
+    form = _report_filter(request, CustomerReportFilterForm)
     if not form.is_valid():
         messages.error(request, "Khoảng thời gian không hợp lệ.")
         return redirect("dashboard:report-dashboard")
@@ -1581,7 +1754,6 @@ def report_customers_export(request: HttpRequest) -> HttpResponse:
     )
     header, rows = report_exports.customer_report_csv(data)
     return report_exports.build_csv_response("bao_cao_khach_hang.csv", header, rows)
-    return redirect("dashboard:invoice-list")
 
 
 def _insight_response(
@@ -1595,7 +1767,7 @@ def _insight_response(
 @require_permission("view", "report")
 def report_revenue_insights(request: HttpRequest) -> HttpResponse:
     """GET /reports/revenue/insights/ — called by the "Phân tích AI" button."""
-    form = _report_filter(request)
+    form = _report_filter(request, RevenueReportFilterForm)
     if not form.is_valid():
         return JsonResponse({"error": "invalid_date_range"}, status=400)
     date_from = form.cleaned_data["date_from"]
@@ -1609,7 +1781,7 @@ def report_revenue_insights(request: HttpRequest) -> HttpResponse:
 @require_permission("view", "report")
 def report_top_selling_insights(request: HttpRequest) -> HttpResponse:
     """GET /reports/products/top-selling/insights/"""
-    form = _report_filter(request)
+    form = _report_filter(request, TopSellingReportFilterForm)
     if not form.is_valid():
         return JsonResponse({"error": "invalid_date_range"}, status=400)
     params = {
@@ -1625,7 +1797,7 @@ def report_top_selling_insights(request: HttpRequest) -> HttpResponse:
 @require_permission("view", "report")
 def report_inventory_insights(request: HttpRequest) -> HttpResponse:
     """GET /reports/inventory/insights/"""
-    form = _report_filter(request)
+    form = _report_filter(request, InventoryReportFilterForm)
     if not form.is_valid():
         return JsonResponse({"error": "invalid_date_range"}, status=400)
     date_from = form.cleaned_data["date_from"]
@@ -1642,7 +1814,7 @@ def report_inventory_insights(request: HttpRequest) -> HttpResponse:
 @require_permission("view", "report")
 def report_payment_breakdown_insights(request: HttpRequest) -> HttpResponse:
     """GET /reports/payments/breakdown/insights/"""
-    form = _report_filter(request)
+    form = _report_filter(request, PaymentBreakdownReportFilterForm)
     if not form.is_valid():
         return JsonResponse({"error": "invalid_date_range"}, status=400)
     date_from = form.cleaned_data["date_from"]
@@ -1659,7 +1831,7 @@ def report_payment_breakdown_insights(request: HttpRequest) -> HttpResponse:
 @require_permission("view", "report")
 def report_customers_insights(request: HttpRequest) -> HttpResponse:
     """GET /reports/customers/insights/"""
-    form = _report_filter(request)
+    form = _report_filter(request, CustomerReportFilterForm)
     if not form.is_valid():
         return JsonResponse({"error": "invalid_date_range"}, status=400)
     params = {

@@ -433,35 +433,15 @@ h1 {
   font-size: 0.9rem;
 }
 
-/* Report filter — grouped by scope (date range applies to every report;
-   Top N / sort only apply to the Top-selling & Customer reports). */
+/* Report filter — each report card owns its own independent filter form,
+   submitted in place via fetch (see dashboard/reports/index.html) so
+   filtering one card never reloads the page or the other cards. */
 .report-filter {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 1.75rem;
   row-gap: 1rem;
-}
-.report-filter__group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.report-filter__group-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-muted);
-}
-.report-filter__group-label .report-filter__scope-hint {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: normal;
-  margin-top: 0.15rem;
-  color: var(--text-muted);
 }
 .report-filter__fields {
   display: flex;
@@ -492,8 +472,18 @@ h1 {
   outline: 2px solid var(--primary);
   outline-offset: 1px;
 }
-.report-filter__submit {
+.report-filter__actions {
+  display: flex;
+  gap: 0.5rem;
   align-self: flex-end;
+}
+
+/* Fixed-size wrapper so a Chart.js `responsive` doughnut/pie doesn't grow
+   to fill the full card width (its aspect ratio is ~1:1, so an unconstrained
+   parent makes it balloon to a huge square). */
+.chart-container--compact {
+  max-width: 260px;
+  margin: 0 auto 1rem;
 }
 
 @media (max-width: 640px) {
@@ -509,8 +499,11 @@ h1 {
     width: 100%;
     min-width: 0;
   }
-  .report-filter__submit {
+  .report-filter__actions {
     width: 100%;
+  }
+  .report-filter__actions .btn {
+    flex: 1;
   }
 }
 

@@ -22,14 +22,38 @@ thức thanh toán, khách hàng), cho phép xuất CSV, và hiện thực hoá 
   Dashboard), `views.py` (10 view: 5 report + 5 export, đều là `APIView`
   thuần, không có Service layer vì Report không ghi dữ liệu gì).
 - 10 endpoint JSON API dưới `/api/v1/reports/...` (xem README mục "Báo cáo").
-- Dashboard UI: trang tổng quan `/reports/` (5 section trong 1 trang, bộ lọc
-  khoảng thời gian/Top N/sort dùng chung) + 5 URL export riêng cho session,
-  dùng lại đúng `ReportSelector`/`exports` — không viết lại logic tổng hợp
-  cho transport HTML (đúng nguyên tắc "hai transport, cùng Service/Selector"
-  ở README).
-- `ReportFilterForm` (Dashboard) và `ReportDateRangeSerializer` (API) cùng gọi
-  chung `apps.reports.validators.resolve_date_range()` để hai transport luôn
-  resolve khoảng thời gian mặc định/không hợp lệ giống hệt nhau.
+- Dashboard UI: trang tổng quan `/reports/` (5 card trong 1 trang, mỗi card
+  có bộ lọc riêng — khoảng thời gian độc lập cho từng báo cáo, Top N/sort
+  chỉ xuất hiện ở Sản phẩm bán chạy & Khách hàng vì chỉ hai báo cáo đó dùng
+  đến) + 5 URL export riêng cho session, dùng lại đúng
+  `ReportSelector`/`exports` — không viết lại logic tổng hợp cho transport
+  HTML (đúng nguyên tắc "hai transport, cùng Service/Selector" ở README).
+  Ban đầu cả 5 card dùng chung 1 `ReportFilterForm`, gây nhầm lẫn vì Top N/
+  sort trông như áp dụng cho mọi báo cáo; đã tách thành `ReportDateRangeForm`
+  (base) + 5 subclass riêng (`RevenueReportFilterForm`,
+  `TopSellingReportFilterForm`, `InventoryReportFilterForm`,
+  `PaymentBreakdownReportFilterForm`, `CustomerReportFilterForm`).
+  Vòng lặp UX thứ hai (sau phản hồi thực tế dùng thử): mỗi card giờ submit
+  filter qua AJAX (`fetch`) vào một `report_*_fragment` view riêng
+  (`/reports/<report>/fragment/`, trả về đúng HTML của card đó, không phải
+  cả trang) rồi thay `innerHTML` của đúng `<div class="card" id="report-card-
+  ...">` — bấm "Lọc" ở 1 card không còn reload cả trang hay đụng đến 4 card
+  còn lại (bỏ hẳn cách tiếp cận query-param-có-prefix + hidden input đồng bộ
+  giữa các card trước đó, không cần nữa vì không còn share 1 lần submit toàn
+  trang). Nút "Xuất CSV" chuyển thành `<button formaction="...export/">` nằm
+  trong chính form đó — luôn export đúng giá trị đang gõ trong ô lọc tại thời
+  điểm bấm, kể cả khi chưa bấm "Lọc" (trước đó `<a href>` dựng sẵn phía server
+  nên xuất ra dữ liệu cũ nếu người dùng gõ filter mới mà quên bấm Lọc trước).
+  Input ngày đổi từ `<input type="date">` (định dạng theo locale trình
+  duyệt, không ép được dd/mm/yyyy) sang `<input type="text">` hiển thị
+  dd/mm/yyyy (`ReportDateRangeForm` nhận cả `"%d/%m/%Y"` lẫn `"%Y-%m-%d"` qua
+  `input_formats` để không phá các URL export/insight cũ dùng ISO), có JS
+  tự chèn dấu `/` khi gõ. Chart doughnut "Phương thức thanh toán" được bọc
+  trong `.chart-container--compact` (max-width cố định) vì Chart.js
+  `responsive` không có container giới hạn sẽ phóng to theo bề rộng card.
+- `ReportDateRangeForm` (Dashboard) và `ReportDateRangeSerializer` (API) cùng
+  gọi chung `apps.reports.validators.resolve_date_range()` để hai transport
+  luôn resolve khoảng thời gian mặc định/không hợp lệ giống hệt nhau.
 - RBAC: `view:report`, `export:report` — khai báo trong
   `apps/reports/permissions.py`, tham chiếu `PermissionResource.REPORT` có
   sẵn từ Sprint 1. Không sửa gì trong `apps/accounts`.
@@ -118,16 +142,21 @@ với giá trị 0 rồi update sau).
 - `apps/reports/` (toàn bộ: `apps.py`, `constants.py`, `permissions.py`,
   `selectors.py`, `serializers.py`, `exports.py`, `views.py`, `urls.py`,
   `validators.py`, `migrations/__init__.py`, `tests/`)
-- `apps/dashboard/templates/dashboard/reports/index.html`
+- `apps/dashboard/templates/dashboard/reports/index.html` +
+  `_revenue_card.html`, `_top_selling_card.html`, `_inventory_card.html`,
+  `_payment_card.html`, `_customer_card.html` (mỗi card 1 partial, dùng lại
+  cả cho `{% include %}` lần render đầu lẫn cho response của `*_fragment`)
 - `docs/prd_report.md`, `docs/sprint_5.md`
 
 **Sửa:**
 - `config/settings/base.py` (`LOCAL_APPS` += `apps.reports`)
 - `config/urls.py` (include `apps.reports.urls`)
 - `config/views.py` (`FEATURE_MODULES` += `reports`)
-- `apps/dashboard/views.py` (menu "Báo cáo" + 6 view function mới)
-- `apps/dashboard/urls.py` (6 URL mới)
-- `apps/dashboard/forms.py` (`ReportFilterForm`)
+- `apps/dashboard/views.py` (menu "Báo cáo" + 16 view function: `report_dashboard`,
+  5 `report_*_fragment` (AJAX), 5 `report_*_export`, 5 `report_*_insights`)
+- `apps/dashboard/urls.py` (16 URL: `report-dashboard` + 5 `*-fragment` +
+  5 `*-export` + 5 `*-insights`)
+- `apps/dashboard/forms.py` (`ReportDateRangeForm` + 5 per-report subclasses)
 - `tests/conftest.py` (fixture RBAC cho `report`: permission/role/client)
 - `README.md` (bảng API Dashboard + JSON API cho Report)
 
