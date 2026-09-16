@@ -107,6 +107,7 @@ TEMPLATES: list[dict] = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.dashboard.context_processors.nav_modules",
             ],
         },
     },
@@ -278,7 +279,9 @@ CORS_ALLOWED_ORIGINS: list[str] = config(
     default="http://localhost:3000",
     cast=Csv(),
 )
-
+CSRF_TRUSTED_ORIGINS = [
+    "https://pos.dyca.vn",
+]
 CORS_ALLOW_CREDENTIALS: bool = True
 
 # =============================================================================
@@ -288,14 +291,57 @@ CORS_ALLOW_CREDENTIALS: bool = True
 SEPAY_ENV: str = config("SEPAY_ENV", default="sandbox")
 SEPAY_MERCHANT_ID: str = config("SEPAY_MERCHANT_ID", default="")
 SEPAY_SECRET_KEY: str = config("SEPAY_SECRET_KEY", default="")
-SEPAY_CHECKOUT_URL: str = config(
-    "SEPAY_CHECKOUT_URL",
-    default="https://pay-sandbox.sepay.vn/v1/checkout/init",
+SEPAY_KEY: str = config("SEPAY_KEY", default="")
+SEPAY_WEBHOOK_SECRET: str = config(
+    "SEPAY_WEBHOOK_SECRET", default=SEPAY_SECRET_KEY
 )
+SEPAY_BANK_ACCOUNT_XID: str = config("SEPAY_BANK_ACCOUNT_XID", default="")
 SEPAY_API_URL: str = config(
     "SEPAY_API_URL",
-    default="https://pgapi-sandbox.sepay.vn",
+    default="https://userapi-sandbox.sepay.vn/v2",
 )
+VIETQR_BANK_ID: str = config("VIETQR_BANK_ID", default="VCB")
+VIETQR_ACCOUNT_NUMBER: str = config("VIETQR_ACCOUNT_NUMBER", default="")
+VIETQR_ACCOUNT_NAME: str = config("VIETQR_ACCOUNT_NAME", default="")
+
+PAYON_BASE_URL: str = config("PAYON_BASE_URL", default="https://dev-api-merchant.payon.vn/v1/merchant")
+MOMO_REDIRECT: str = config("MOMO_REDIRECT", default="https://pos.dyca.vn")
+MOMO_DEEPLINK: str = config("MOMO_DEEPLINK", default="momo://?refId=dev_tool&tripId=GKX2SYA&tranxId=mipay_4179&appId=miniapp.TrkMv54nrF1g1UmRGp1i.myspaapp&deeplink=true&url=")
+MOMO_PARTNER_NAME: str = config("MOMO_PARTNER_NAME", default="Myspa Dev")
+MOMO_BASE_URL_V2: str = config("MOMO_BASE_URL_V2", default="https://test-payment.momo.vn")
+MOMO_PARTNER_CODE: str = config("MOMO_PARTNER_CODE", default="MOMOAR3G20211022")
+MOMO_ACCESS_KEY: str = config("MOMO_ACCESS_KEY", default="z6TZJeskXV5DHal9")
+MOMO_SECRET_KEY: str = config("MOMO_SECRET_KEY", default="KjeXxvqdKpUnfwwBannqYkqILsjdcJpj")
+PAYPAL_CLIENT_ID: str = config("PAYPAL_CLIENT_ID", default="")
+PAYPAL_SECRET: str = config("PAYPAL_SECRET", default="")
+PAYPAL_BASE_URL: str = config("PAYPAL_BASE_URL", default="https://api-m.sandbox.paypal.com")
+PAYPAL_CURRENCY: str = config("PAYPAL_CURRENCY", default="USD")
+PAYPAL_VND_TO_USD_RATE: str = config("PAYPAL_VND_TO_USD_RATE", default="25000")
+PAYPAL_REDIRECT_URL: str = config("PAYPAL_REDIRECT_URL", default="https://pos.dyca.vn/payment/paypal/success")
+PAYPAL_CANCEL_URL: str = config("PAYPAL_CANCEL_URL", default="https://pos.dyca.vn/payment/paypal/cancel")
+
+# =============================================================================
+# Report AI Insight — see apps/reports/ai/
+# =============================================================================
+# Missing keys are expected in dev/CI: ReportInsightService falls back to a
+# rule-based generator, so the feature always works without either provider.
+
+GEMINI_API_KEY: str = config("GEMINI_API_KEY", default="")
+GEMINI_API_URL: str = config(
+    "GEMINI_API_URL",
+    default="https://generativelanguage.googleapis.com/v1beta/models",
+)
+GEMINI_MODEL: str = config("GEMINI_MODEL", default="gemini-2.0-flash")
+
+GROQ_API_KEY: str = config("GROQ_API_KEY", default="")
+GROQ_API_URL: str = config(
+    "GROQ_API_URL",
+    default="https://api.groq.com/openai/v1/chat/completions",
+)
+GROQ_MODEL: str = config("GROQ_MODEL", default="llama-3.3-70b-versatile")
+
+AI_INSIGHT_TIMEOUT: int = config("AI_INSIGHT_TIMEOUT", default=10, cast=int)
+AI_INSIGHT_CACHE_TTL: int = config("AI_INSIGHT_CACHE_TTL", default=900, cast=int)
 
 # =============================================================================
 # Application Version

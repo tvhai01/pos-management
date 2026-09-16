@@ -2,6 +2,7 @@
 {% block title %}{% if is_edit %}Sửa vai trò{% else %}Tạo vai trò{% endif %} — POS Management System{% endblock %}
 {% block content %}
 <div class="card">
+  <p class="eyebrow">Con người &amp; phân quyền</p>
   <h1>{% if is_edit %}Sửa vai trò — {{ role.name }}{% else %}Tạo vai trò{% endif %}</h1>
 
   {% if form.non_field_errors %}
@@ -26,44 +27,46 @@
       <label>{{ form.permissions.label }}</label>
       {% if form.permissions.errors %}<p class="form-errors">{{ form.permissions.errors|join:", " }}</p>{% endif %}
 
-      <table>
-        <thead>
-          <tr>
-            <th>Module</th>
-            <th style="text-align:center">Xem</th>
-            <th style="text-align:center">Tạo</th>
-            <th style="text-align:center">Sửa</th>
-            <th style="text-align:center">Xoá</th>
-            <th>Khác</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in permission_matrix %}
+      <div class="table-scroll">
+        <table class="workspace-table permission-matrix">
+          <thead>
             <tr>
-              <td>{{ row.resource_label }}</td>
-              {% for cell in row.cells %}
-                <td style="text-align:center">
-                  {% if cell %}
-                    <input type="checkbox" name="permissions" value="{{ cell.permission.id }}" {% if cell.checked %}checked{% endif %}>
-                  {% else %}
-                    —
-                  {% endif %}
-                </td>
-              {% endfor %}
-              <td>
-                {% for cell in row.extra %}
-                  <label style="margin-right:0.75rem;white-space:nowrap">
-                    <input type="checkbox" name="permissions" value="{{ cell.permission.id }}" {% if cell.checked %}checked{% endif %}>
-                    {{ cell.permission.get_action_display }}
-                  </label>
-                {% endfor %}
-              </td>
+              <th>Module</th>
+              <th style="text-align:center">Xem</th>
+              <th style="text-align:center">Tạo</th>
+              <th style="text-align:center">Sửa</th>
+              <th style="text-align:center">Xoá</th>
+              <th>Khác</th>
             </tr>
-          {% empty %}
-            <tr><td colspan="6" class="text-muted">Chưa có permission nào trong hệ thống — tạo qua Django Admin.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% for row in permission_matrix %}
+              <tr>
+                <td><strong>{{ row.resource_label }}</strong></td>
+                {% for cell in row.cells %}
+                  <td style="text-align:center">
+                    {% if cell %}
+                      <input type="checkbox" name="permissions" value="{{ cell.permission.id }}" {% if cell.checked %}checked{% endif %}>
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                {% endfor %}
+                <td>
+                  {% for cell in row.extra %}
+                    <label style="margin-right:0.75rem;white-space:nowrap">
+                      <input type="checkbox" name="permissions" value="{{ cell.permission.id }}" {% if cell.checked %}checked{% endif %}>
+                      {{ cell.permission.get_action_display }}
+                    </label>
+                  {% endfor %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6" class="empty-state">Chưa có permission nào trong hệ thống — tạo qua Django Admin.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <button type="submit" class="btn">{% if is_edit %}Lưu thay đổi{% else %}Tạo vai trò{% endif %}</button>

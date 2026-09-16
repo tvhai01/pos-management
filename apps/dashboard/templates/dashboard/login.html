@@ -3,6 +3,7 @@
 {% block content %}
 <div class="login-page">
   <div class="card login-card">
+    <p class="eyebrow">POS Management System</p>
     <h1>Đăng nhập</h1>
 
     {% if form.non_field_errors %}
@@ -23,7 +24,7 @@
         {{ form.password }}
         {% if form.password.errors %}<p class="form-errors">{{ form.password.errors|join:", " }}</p>{% endif %}
       </div>
-      <button type="submit" class="btn" style="width:100%">Đăng nhập</button>
+      <button type="submit" class="btn btn-block">Đăng nhập</button>
     </form>
     <p class="text-muted" style="margin-top:1rem;text-align:center">
       Đăng nhập bằng tài khoản đã được cấp trong hệ thống.

@@ -1,161 +1,239 @@
 {% extends "dashboard/base.html" %}
-{% load humanize %}
 {% block title %}Báo cáo — POS Management System{% endblock %}
 
 {% block content %}
 <div class="card">
+  <p class="eyebrow">Vận hành</p>
   <h1 style="margin-top:0">Báo cáo</h1>
-
-  {% if form.non_field_errors %}
-    <div class="alert alert-error">
-      {% for error in form.non_field_errors %}{{ error }}{% endfor %}
-    </div>
-  {% endif %}
-
-  <form class="toolbar" method="get">
-    {% for field in form %}
-      <div>
-        <label for="{{ field.id_for_label }}" class="text-muted">{{ field.label }}</label><br>
-        {{ field }}
-        {% if field.errors %}<p class="form-errors">{{ field.errors|join:", " }}</p>{% endif %}
-      </div>
-    {% endfor %}
-    <button type="submit" class="btn" style="align-self:flex-end">Xem báo cáo</button>
-  </form>
+  <p class="section-description">Doanh thu, sản phẩm bán chạy, tồn kho, thanh toán, khách hàng — mỗi báo cáo lọc theo khoảng thời gian riêng của chính nó.</p>
 </div>
 
-{% if revenue %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
-
-<div class="card">
-  <div class="toolbar" style="margin-bottom:1rem">
-    <h2 style="margin:0">Doanh thu</h2>
-    {% if can_export %}
-      <a class="btn btn-secondary" style="margin-left:auto" href="{% url 'dashboard:report-revenue-export' %}?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}">Xuất CSV</a>
-    {% endif %}
-  </div>
-  <p>
-    Tổng doanh thu: <strong>{{ revenue.total_revenue|floatformat:0|intcomma }} đ</strong> —
-    Số hoá đơn: <strong>{{ revenue.invoice_count }}</strong> —
-    Trung bình/hoá đơn: <strong>{{ revenue.average_invoice_value|floatformat:0|intcomma }} đ</strong>
-  </p>
-  <table>
-    <thead><tr><th>Kỳ</th><th>Doanh thu</th><th>Số hoá đơn</th></tr></thead>
-    <tbody>
-      {% for row in revenue.breakdown %}
-        <tr><td>{{ row.period|date:"d/m/Y" }}</td><td>{{ row.total|floatformat:0|intcomma }} đ</td><td>{{ row.invoice_count }}</td></tr>
-      {% empty %}
-        <tr><td colspan="3" class="text-muted">Không có doanh thu trong khoảng thời gian này.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="card" id="report-card-revenue">
+  {% include "dashboard/reports/_revenue_card.html" with card=revenue %}
 </div>
 
-<div class="card">
-  <div class="toolbar" style="margin-bottom:1rem">
-    <h2 style="margin:0">Sản phẩm bán chạy</h2>
-    {% if can_export %}
-      <a class="btn btn-secondary" style="margin-left:auto" href="{% url 'dashboard:report-top-selling-export' %}?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}&top_n={{ top_n }}&sort_by={{ sort_by }}">Xuất CSV</a>
-    {% endif %}
-  </div>
-  <table>
-    <thead><tr><th>SKU</th><th>Sản phẩm</th><th>Số lượng bán</th><th>Doanh thu</th></tr></thead>
-    <tbody>
-      {% for row in top_selling_products %}
-        <tr><td><strong>{{ row.product_sku }}</strong></td><td>{{ row.product_name }}</td><td>{{ row.total_quantity|floatformat:"-3" }}</td><td>{{ row.total_revenue|floatformat:0|intcomma }} đ</td></tr>
-      {% empty %}
-        <tr><td colspan="4" class="text-muted">Không có sản phẩm bán ra trong khoảng thời gian này.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="card" id="report-card-top-selling">
+  {% include "dashboard/reports/_top_selling_card.html" with card=top_selling %}
 </div>
 
-<div class="card">
-  <div class="toolbar" style="margin-bottom:1rem">
-    <h2 style="margin:0">Tồn kho</h2>
-    {% if can_export %}
-      <a class="btn btn-secondary" style="margin-left:auto" href="{% url 'dashboard:report-inventory-export' %}?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}">Xuất CSV</a>
-    {% endif %}
-  </div>
-  <p>
-    Hết hàng: <strong>{{ inventory_report.out_of_stock_count }}</strong> —
-    Tồn thấp: <strong>{{ inventory_report.low_stock_count }}</strong> —
-    Giá trị tồn kho ước tính: <strong>{{ inventory_report.inventory_value|floatformat:0|intcomma }} đ</strong>
-  </p>
-  <p class="text-muted">
-    Nhập kho: {{ inventory_report.inbound_total|floatformat:"-3" }} —
-    Xuất kho: {{ inventory_report.outbound_total|floatformat:"-3" }} —
-    Điều chỉnh: {{ inventory_report.adjustment_total|floatformat:"-3" }}
-    (trong khoảng thời gian đã chọn)
-  </p>
-  <table>
-    <thead><tr><th>SKU</th><th>Sản phẩm</th><th>Tồn hiện tại</th><th>Ngưỡng thấp</th><th>Trạng thái</th></tr></thead>
-    <tbody>
-      {% for row in inventory_report.out_of_stock_products %}
-        <tr><td><strong>{{ row.product__sku }}</strong></td><td>{{ row.product__name }}</td><td>0</td><td>{{ row.low_stock_threshold|floatformat:"-3" }}</td><td><span class="badge" style="background:#fee2e2;color:#991b1b">Hết hàng</span></td></tr>
-      {% endfor %}
-      {% for row in inventory_report.low_stock_products %}
-        <tr><td><strong>{{ row.product__sku }}</strong></td><td>{{ row.product__name }}</td><td>{{ row.quantity|floatformat:"-3" }}</td><td>{{ row.low_stock_threshold|floatformat:"-3" }}</td><td><span class="badge" style="background:#fef3c7;color:#92400e">Sắp hết</span></td></tr>
-      {% empty %}
-        {% if not inventory_report.out_of_stock_products %}
-          <tr><td colspan="5" class="text-muted">Không có sản phẩm nào hết hàng hoặc sắp hết.</td></tr>
-        {% endif %}
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="card" id="report-card-inventory">
+  {% include "dashboard/reports/_inventory_card.html" with card=inventory %}
 </div>
 
-<div class="card">
-  <div class="toolbar" style="margin-bottom:1rem">
-    <h2 style="margin:0">Phương thức thanh toán</h2>
-    {% if can_export %}
-      <a class="btn btn-secondary" style="margin-left:auto" href="{% url 'dashboard:report-payment-breakdown-export' %}?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}">Xuất CSV</a>
-    {% endif %}
-  </div>
-  <h3>Theo phương thức</h3>
-  <table>
-    <thead><tr><th>Phương thức</th><th>Tổng giao dịch</th><th>Tiền thu (thành công)</th></tr></thead>
-    <tbody>
-      {% for row in payment_breakdown.by_payment_method %}
-        <tr><td>{{ row.key }}</td><td>{{ row.total_count }}</td><td>{{ row.success_amount|floatformat:0|intcomma }} đ</td></tr>
-      {% empty %}
-        <tr><td colspan="3" class="text-muted">Không có giao dịch nào.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  <h3>Theo nhà cung cấp</h3>
-  <table>
-    <thead><tr><th>Nhà cung cấp</th><th>Tổng giao dịch</th><th>Tiền thu (thành công)</th></tr></thead>
-    <tbody>
-      {% for row in payment_breakdown.by_provider %}
-        <tr><td>{{ row.key }}</td><td>{{ row.total_count }}</td><td>{{ row.success_amount|floatformat:0|intcomma }} đ</td></tr>
-      {% empty %}
-        <tr><td colspan="3" class="text-muted">Không có giao dịch nào.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="card" id="report-card-payment">
+  {% include "dashboard/reports/_payment_card.html" with card=payment %}
 </div>
 
-<div class="card">
-  <div class="toolbar" style="margin-bottom:1rem">
-    <h2 style="margin:0">Khách hàng</h2>
-    {% if can_export %}
-      <a class="btn btn-secondary" style="margin-left:auto" href="{% url 'dashboard:report-customers-export' %}?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}&top_n={{ top_n }}">Xuất CSV</a>
-    {% endif %}
-  </div>
-  <p>Khách hàng mới trong kỳ: <strong>{{ customer_report.new_customers_count }}</strong></p>
-  <table>
-    <thead><tr><th>Mã KH</th><th>Tên khách hàng</th><th>Tổng chi tiêu</th><th>Số hoá đơn</th></tr></thead>
-    <tbody>
-      {% for row in customer_report.top_customers %}
-        <tr><td>{{ row.customer__customer_code }}</td><td>{{ row.customer__full_name }}</td><td>{{ row.total_spent|floatformat:0|intcomma }} đ</td><td>{{ row.invoice_count }}</td></tr>
-      {% empty %}
-        <tr><td colspan="4" class="text-muted">Không có khách hàng chi tiêu trong khoảng thời gian này.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="card" id="report-card-customer">
+  {% include "dashboard/reports/_customer_card.html" with card=customer %}
 </div>
 
+<script>
+(function () {
+  var palette = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed', '#0891b2'];
+  var charts = {};
 
-{% endif %}
+  function readChartData(elementId) {
+    var el = document.getElementById(elementId);
+    if (!el) return null;
+    try {
+      return JSON.parse(el.textContent);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function destroyChart(key) {
+    if (charts[key]) {
+      charts[key].destroy();
+      delete charts[key];
+    }
+  }
+
+  var chartInitializers = {
+    revenue: function () {
+      destroyChart('revenue');
+      var rows = readChartData('revenue-chart-data');
+      var canvas = document.getElementById('revenueChart');
+      if (!rows || !rows.length || !canvas) return;
+      charts.revenue = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: rows.map(function (r) { return String(r.period).slice(0, 10); }),
+          datasets: [{
+            label: 'Doanh thu (đ)',
+            data: rows.map(function (r) { return Number(r.total); }),
+            borderColor: palette[0],
+            backgroundColor: 'rgba(37, 99, 235, 0.15)',
+            tension: 0.25,
+            fill: true,
+          }],
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } },
+      });
+    },
+    'top-selling': function () {
+      destroyChart('top-selling');
+      var rows = readChartData('top-selling-chart-data');
+      var canvas = document.getElementById('topSellingChart');
+      if (!rows || !rows.length || !canvas) return;
+      charts['top-selling'] = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: rows.map(function (r) { return r.product_name; }),
+          datasets: [{
+            label: 'Doanh thu (đ)',
+            data: rows.map(function (r) { return Number(r.total_revenue); }),
+            backgroundColor: palette[0],
+          }],
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } },
+      });
+    },
+    inventory: function () {
+      destroyChart('inventory');
+      var data = readChartData('inventory-chart-data');
+      var canvas = document.getElementById('inventoryMovementChart');
+      if (!data || !canvas || !(data.inbound_total || data.outbound_total || data.adjustment_total)) return;
+      charts.inventory = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: ['Nhập kho', 'Xuất kho', 'Điều chỉnh'],
+          datasets: [{
+            label: 'Số lượng',
+            data: [
+              Number(data.inbound_total || 0),
+              Number(data.outbound_total || 0),
+              Number(data.adjustment_total || 0),
+            ],
+            backgroundColor: [palette[1], palette[3], palette[2]],
+          }],
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } },
+      });
+    },
+    payment: function () {
+      destroyChart('payment');
+      var rows = readChartData('payment-method-chart-data');
+      var canvas = document.getElementById('paymentMethodChart');
+      if (!rows || !rows.length || !canvas) return;
+      charts.payment = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+          labels: rows.map(function (r) { return r.key; }),
+          datasets: [{
+            label: 'Tiền thu (thành công)',
+            data: rows.map(function (r) { return Number(r.success_amount); }),
+            backgroundColor: palette,
+          }],
+        },
+        options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1 },
+      });
+    },
+    customer: function () {
+      destroyChart('customer');
+      var rows = readChartData('customer-chart-data');
+      var canvas = document.getElementById('customerChart');
+      if (!rows || !rows.length || !canvas) return;
+      charts.customer = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: rows.map(function (r) { return r.customer__full_name; }),
+          datasets: [{
+            label: 'Tổng chi tiêu (đ)',
+            data: rows.map(function (r) { return Number(r.total_spent); }),
+            backgroundColor: palette[4],
+          }],
+        },
+        options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } },
+      });
+    },
+  };
+
+  Object.keys(chartInitializers).forEach(function (key) { chartInitializers[key](); });
+
+  // Auto-insert "/" as the user types a dd/mm/yyyy date.
+  document.addEventListener('input', function (event) {
+    var el = event.target;
+    if (!el.matches('input.date-input')) return;
+    var digits = el.value.replace(/\D/g, '').slice(0, 8);
+    var parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean);
+    el.value = parts.join('/');
+  });
+
+  // Each card's "Lọc" submit is fetched and swapped in place — only that
+  // card's content updates, the other 4 cards are untouched. The "Xuất
+  // CSV" button (has its own `formaction`) is left alone here so the
+  // browser submits it natively with whatever is currently in the date/
+  // Top N fields, whether or not "Lọc" was clicked first.
+  document.addEventListener('submit', function (event) {
+    var form = event.target;
+    if (!form.matches('.report-filter')) return;
+    if (event.submitter && event.submitter.hasAttribute('formaction')) return;
+
+    event.preventDefault();
+    var reportKey = form.dataset.reportForm;
+    var card = document.getElementById('report-card-' + reportKey);
+    if (!card) return;
+    var submitBtn = form.querySelector('.report-filter__submit');
+    var params = new URLSearchParams(new FormData(form));
+
+    if (submitBtn) submitBtn.disabled = true;
+    fetch(form.action + '?' + params.toString(), { credentials: 'same-origin' })
+      .then(function (response) { return response.text(); })
+      .then(function (html) {
+        card.innerHTML = html;
+        if (chartInitializers[reportKey]) chartInitializers[reportKey]();
+      })
+      .finally(function () {
+        if (submitBtn) submitBtn.disabled = false;
+      });
+  });
+
+  var sourceLabels = { gemini: 'Gemini', groq: 'Groq', rule_based: 'Rule-based' };
+
+  document.addEventListener('click', function (event) {
+    var btn = event.target.closest('.ai-insight-btn');
+    if (!btn) return;
+
+    var container = btn.closest('.ai-insight');
+    var url = container.dataset.url;
+    var resultBox = container.querySelector('.ai-insight-result');
+    var errorBox = container.querySelector('.ai-insight-error');
+    var summaryEl = container.querySelector('.ai-insight-summary');
+    var listEl = container.querySelector('.ai-insight-recommendations');
+    var sourceEl = container.querySelector('.ai-insight-source');
+
+    btn.disabled = true;
+    btn.textContent = 'Đang phân tích...';
+    errorBox.hidden = true;
+
+    fetch(url, { credentials: 'same-origin' })
+      .then(function (response) {
+        if (!response.ok) { throw new Error('request_failed'); }
+        return response.json();
+      })
+      .then(function (data) {
+        summaryEl.textContent = data.summary || '';
+        listEl.innerHTML = '';
+        (data.recommendations || []).forEach(function (item) {
+          var li = document.createElement('li');
+          li.textContent = item;
+          listEl.appendChild(li);
+        });
+        sourceEl.textContent = 'Nguồn: ' + (sourceLabels[data.source] || data.source || '—');
+        resultBox.hidden = false;
+      })
+      .catch(function () {
+        errorBox.hidden = false;
+      })
+      .finally(function () {
+        btn.disabled = false;
+        btn.textContent = '🔎 Phân tích AI';
+      });
+  });
+})();
+</script>
 {% endblock %}

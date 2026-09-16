@@ -36,12 +36,21 @@ class ManualPaymentSerializer(serializers.Serializer):
 class WebhookSerializer(serializers.Serializer):
     order_invoice_number = serializers.CharField(required=False, allow_blank=True)
     reference = serializers.CharField(required=False, allow_blank=True)
+    transaction_content = serializers.CharField(required=False, allow_blank=True)
     transaction_id = serializers.CharField(required=False, allow_blank=True)
     id = serializers.CharField(required=False, allow_blank=True)
-    amount = serializers.DecimalField(max_digits=14, decimal_places=2)
+    bank_account_xid = serializers.CharField(required=False, allow_blank=True)
+    transfer_type = serializers.CharField(required=False, allow_blank=True)
+    amount = serializers.DecimalField(max_digits=14, decimal_places=2, required=False)
+    amount_in = serializers.DecimalField(max_digits=14, decimal_places=2, required=False)
     currency = serializers.CharField(max_length=3, required=False)
     status = serializers.ChoiceField(choices=PaymentStatus.values, required=False)
     content = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        if "amount" not in attrs and "amount_in" not in attrs:
+            raise serializers.ValidationError("amount or amount_in is required.")
+        return attrs
 
 
 class TransactionSerializer(serializers.ModelSerializer):

@@ -1,5 +1,262 @@
 {% extends "dashboard/base.html" %}
-{% block title %}Tạo đơn hàng{% endblock %}
+{% load humanize %}
+{% block title %}Tạo đơn hàng — POS Management System{% endblock %}
+{% block page_class %}workspace-page{% endblock %}
 {% block content %}
-<div class="card"><h1>Tạo đơn hàng</h1><form method="post">{% csrf_token %}<label>Khách hàng<select name="customer_id" required>{% for customer in customers %}<option value="{{ customer.id }}">{{ customer.full_name }} — {{ customer.phone }}</option>{% endfor %}</select></label><div id="items"><div class="order-row"><select name="product_id" required>{% for product in products %}<option value="{{ product.id }}">{{ product.name }} — {{ product.sku }} — {{ product.selling_price }} VND</option>{% endfor %}</select><input name="quantity" type="number" min="0.001" step="0.001" value="1" required></div></div><button class="btn" type="button" onclick="addRow()">+ Thêm sản phẩm</button><button class="btn" type="submit">Tạo đơn hàng</button></form></div><script>function addRow(){const row=document.querySelector('.order-row').cloneNode(true);document.getElementById('items').appendChild(row);}</script>
+<section class="order-page">
+  <div class="order-hero">
+    <div>
+      <p class="eyebrow">BÁN HÀNG / ĐƠN HÀNG MỚI</p>
+      <h1>Tạo đơn hàng</h1>
+      <p class="order-subtitle">Bước 1 — chọn khách hàng và thêm sản phẩm. Bước tạo thanh toán sẽ ở trang tiếp theo.</p>
+    </div>
+    <span class="order-status">Bản nháp</span>
+  </div>
+
+  <form method="post" id="order-form">
+    {% csrf_token %}
+    <div class="builder-layout">
+      <div class="workspace-panel" style="padding:1.15rem">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">03</p>
+            <h2 style="margin:0">Sản phẩm trong đơn</h2>
+            <p class="section-description">Tìm và chọn sản phẩm, chỉnh số lượng ngay trong bảng.</p>
+          </div>
+        </div>
+
+        <div class="search-box">
+          <label class="search-field">
+            <span class="sr-only">Tìm sản phẩm</span>
+            <input type="text" id="product-search-input" placeholder="Tìm theo tên, SKU sản phẩm..." autocomplete="off">
+          </label>
+          <div class="search-results" id="product-search-results" hidden></div>
+        </div>
+
+        <div class="table-scroll" style="margin-top:1rem">
+          <table class="workspace-table">
+            <thead>
+              <tr>
+                <th>Sản phẩm</th>
+                <th>Đơn giá</th>
+                <th style="width:90px">Số lượng</th>
+                <th>Thành tiền</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cart-body">
+              <tr id="cart-empty-row"><td colspan="5" class="empty-state">Chưa có sản phẩm nào — tìm và chọn ở trên.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <aside class="workspace-panel" style="padding:1.15rem">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">01</p>
+            <h2 style="margin:0">Khách hàng</h2>
+          </div>
+        </div>
+
+        <div class="search-box">
+          <label class="search-field">
+            <span class="sr-only">Tìm khách hàng</span>
+            <input type="text" id="customer-search-input" placeholder="Tìm theo tên, SĐT..." autocomplete="off">
+          </label>
+          <div class="search-results" id="customer-search-results" hidden></div>
+        </div>
+        <input type="hidden" name="customer_id" id="customer-id-input" required>
+        <div id="selected-customer" style="margin-top:0.75rem"></div>
+
+        <div class="order-summary-panel" style="margin-top:1.25rem">
+          <p class="eyebrow" style="margin-bottom:0.5rem">Tóm tắt đơn hàng</p>
+          <div class="order-summary-row">
+            <span>Số sản phẩm</span>
+            <span id="summary-count">0</span>
+          </div>
+          <div class="order-summary-row is-total">
+            <span>Tổng cộng</span>
+            <span id="summary-total">0đ</span>
+          </div>
+        </div>
+
+        <div class="order-actions" style="margin-top:1.25rem">
+          <a class="btn btn-secondary" href="{% url 'dashboard:order-list' %}">Hủy</a>
+          <button class="btn btn-block" type="submit" id="submit-order-btn" disabled>
+            <span aria-hidden="true">✓</span> Tạo đơn hàng
+          </button>
+        </div>
+      </aside>
+    </div>
+  </form>
+</section>
+
+<script>
+(function () {
+  const customerSearchUrl = "{% url 'dashboard:order-customer-search' %}";
+  const productSearchUrl = "{% url 'dashboard:order-product-search' %}";
+
+  function debounce(fn, delay) {
+    let timer = null;
+    return function (...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn.apply(null, args), delay);
+    };
+  }
+
+  function fmtVnd(amount) {
+    return Number(amount).toLocaleString("vi-VN") + "đ";
+  }
+
+  function wireSearch(inputId, resultsId, url, onPick, formatResult) {
+    const input = document.getElementById(inputId);
+    const results = document.getElementById(resultsId);
+
+    function hide() {
+      results.hidden = true;
+      results.innerHTML = "";
+    }
+
+    const doSearch = debounce(function () {
+      const q = input.value.trim();
+      if (!q) {
+        hide();
+        return;
+      }
+      fetch(url + "?q=" + encodeURIComponent(q))
+        .then((res) => res.json())
+        .then((data) => {
+          const items = data.results || [];
+          if (!items.length) {
+            results.innerHTML = '<div class="search-result-empty">Không tìm thấy kết quả.</div>';
+            results.hidden = false;
+            return;
+          }
+          results.innerHTML = "";
+          items.forEach((item) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "search-result-item";
+            button.textContent = formatResult(item);
+            button.addEventListener("click", function () {
+              onPick(item);
+              input.value = "";
+              hide();
+            });
+            results.appendChild(button);
+          });
+          results.hidden = false;
+        })
+        .catch(() => hide());
+    }, 250);
+
+    input.addEventListener("input", doSearch);
+    document.addEventListener("click", function (event) {
+      if (!results.contains(event.target) && event.target !== input) {
+        hide();
+      }
+    });
+  }
+
+  // --- Customer picker -----------------------------------------------
+  const customerIdInput = document.getElementById("customer-id-input");
+  const selectedCustomerBox = document.getElementById("selected-customer");
+  const submitBtn = document.getElementById("submit-order-btn");
+
+  function setCustomer(customer) {
+    customerIdInput.value = customer.id;
+    selectedCustomerBox.innerHTML = "";
+    const card = document.createElement("div");
+    card.className = "selected-card";
+    card.innerHTML = '<p class="selected-card-title"></p>';
+    card.querySelector(".selected-card-title").textContent = customer.label;
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "link-button selected-card-clear";
+    clearBtn.textContent = "Đổi khách hàng khác";
+    clearBtn.addEventListener("click", function () {
+      customerIdInput.value = "";
+      selectedCustomerBox.innerHTML = "";
+      updateSubmitState();
+    });
+    card.appendChild(clearBtn);
+    selectedCustomerBox.appendChild(card);
+    updateSubmitState();
+  }
+
+  wireSearch("customer-search-input", "customer-search-results", customerSearchUrl, setCustomer, (c) => c.label);
+
+  // --- Product / cart picker -------------------------------------------
+  const cartBody = document.getElementById("cart-body");
+  const emptyRow = document.getElementById("cart-empty-row");
+  const summaryCount = document.getElementById("summary-count");
+  const summaryTotal = document.getElementById("summary-total");
+  let cart = []; // [{id, label, price, qty}]
+
+  function updateSubmitState() {
+    submitBtn.disabled = !(customerIdInput.value && cart.length > 0);
+  }
+
+  function renderCart() {
+    cartBody.innerHTML = "";
+    if (!cart.length) {
+      cartBody.appendChild(emptyRow);
+      summaryCount.textContent = "0";
+      summaryTotal.textContent = fmtVnd(0);
+      updateSubmitState();
+      return;
+    }
+    let total = 0;
+    cart.forEach((line, index) => {
+      const lineTotal = line.price * line.qty;
+      total += lineTotal;
+      const tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td>' + line.label + '</td>' +
+        '<td>' + fmtVnd(line.price) + '</td>' +
+        '<td><input type="number" name="quantity" min="1" step="1" value="' + line.qty + '" style="width:70px" required></td>' +
+        '<td><strong class="line-total"></strong></td>' +
+        '<td><button type="button" class="link-button" style="color:var(--danger)">Xóa</button></td>';
+      tr.querySelector(".line-total").textContent = fmtVnd(lineTotal);
+      tr.querySelector('input[name="quantity"]').addEventListener("input", function (e) {
+        const value = Math.max(1, Math.round(Number(e.target.value || 1)));
+        cart[index].qty = value;
+        renderCart();
+      });
+      tr.querySelector("button").addEventListener("click", function () {
+        cart.splice(index, 1);
+        renderCart();
+      });
+      const hiddenId = document.createElement("input");
+      hiddenId.type = "hidden";
+      hiddenId.name = "product_id";
+      hiddenId.value = line.id;
+      tr.appendChild(hiddenId);
+      cartBody.appendChild(tr);
+    });
+    summaryCount.textContent = String(cart.reduce((sum, l) => sum + l.qty, 0));
+    summaryTotal.textContent = fmtVnd(total);
+    updateSubmitState();
+  }
+
+  function addProduct(product) {
+    const existing = cart.find((line) => line.id === product.id);
+    if (existing) {
+      existing.qty += 1;
+    } else {
+      cart.push({ id: product.id, label: product.label, price: Number(product.price), qty: 1 });
+    }
+    renderCart();
+  }
+
+  wireSearch("product-search-input", "product-search-results", productSearchUrl, addProduct, (p) => p.label + " — " + fmtVnd(p.price));
+
+  document.getElementById("order-form").addEventListener("submit", function (event) {
+    if (!customerIdInput.value || !cart.length) {
+      event.preventDefault();
+    }
+  });
+})();
+</script>
 {% endblock %}

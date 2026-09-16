@@ -7,6 +7,7 @@ urlpatterns = [
     path("payments/", PaymentListCreateView.as_view(), name="payment-list-create"),
     path("invoices/<uuid:invoice_id>/payments/", InvoicePaymentCreateView.as_view(), name="invoice-payment-create"),
     path("payments/sepay/webhook/", SePayWebhookView.as_view(), name="sepay-webhook"),
+    path("hooks/seepay/method/", SePayWebhookView.as_view(), name="seepay-method-hook"),
     path("payments/<uuid:payment_id>/", PaymentDetailView.as_view(), name="payment-detail"),
     path("payments/<uuid:payment_id>/cancel/", PaymentCancelView.as_view(), name="payment-cancel"),
     path("payments/<uuid:payment_id>/status/", PaymentStatusView.as_view(), name="payment-status"),

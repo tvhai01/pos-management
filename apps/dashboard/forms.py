@@ -337,26 +337,45 @@ class LowStockThresholdForm(forms.Form):
     )
 
 
-class ReportFilterForm(forms.Form):
-    """Validate the shared date-range/top-N filter on the Report dashboard.
+class ReportDateRangeForm(forms.Form):
+    """Shared date-range validation for each Report card's own filter.
+
+    Each Report on the dashboard (Revenue, Top-selling, Inventory, Payment
+    breakdown, Customer) gets its own filter instance/instance of a subclass
+    below — they used to share one `ReportFilterForm`, which made the Top N/
+    sort_by fields (only meaningful for Top-selling & Customer) look like
+    they applied to every report. Splitting them out removes that ambiguity.
 
     Reuses `resolve_date_range` (also used by the API's
     `ReportDateRangeSerializer`) so both transports resolve a missing/invalid
     range identically.
     """
 
-    date_from = forms.DateField(label="Từ ngày", required=False)
-    date_to = forms.DateField(label="Đến ngày", required=False)
-    top_n = forms.IntegerField(
-        label="Top N",
+    date_from = forms.DateField(
+        label="Từ ngày",
         required=False,
-        min_value=1,
-        max_value=MAX_TOP_N,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+        widget=forms.DateInput(
+            attrs={
+                "placeholder": "dd/mm/yyyy",
+                "class": "date-input",
+                "autocomplete": "off",
+            },
+            format="%d/%m/%Y",
+        ),
     )
-    sort_by = forms.ChoiceField(
-        label="Sắp xếp theo",
-        choices=TopSellingSortBy.choices,
+    date_to = forms.DateField(
+        label="Đến ngày",
         required=False,
+        input_formats=["%d/%m/%Y", "%Y-%m-%d"],
+        widget=forms.DateInput(
+            attrs={
+                "placeholder": "dd/mm/yyyy",
+                "class": "date-input",
+                "autocomplete": "off",
+            },
+            format="%d/%m/%Y",
+        ),
     )
 
     def clean(self) -> dict[str, Any]:
@@ -372,8 +391,58 @@ class ReportFilterForm(forms.Form):
 
         cleaned_data["date_from"] = date_from
         cleaned_data["date_to"] = date_to
+        return cleaned_data
+
+
+class RevenueReportFilterForm(ReportDateRangeForm):
+    """Filter for the Revenue report card — date range only."""
+
+
+class InventoryReportFilterForm(ReportDateRangeForm):
+    """Filter for the Inventory report card — date range only."""
+
+
+class PaymentBreakdownReportFilterForm(ReportDateRangeForm):
+    """Filter for the Payment-method breakdown report card — date range only."""
+
+
+class TopSellingReportFilterForm(ReportDateRangeForm):
+    """Filter for the Top-selling-products report card — date range + Top N/sort."""
+
+    top_n = forms.IntegerField(
+        label="Top N",
+        required=False,
+        min_value=1,
+        max_value=MAX_TOP_N,
+        widget=forms.NumberInput(attrs={"min": 1, "max": MAX_TOP_N}),
+    )
+    sort_by = forms.ChoiceField(
+        label="Sắp xếp theo",
+        choices=TopSellingSortBy.choices,
+        required=False,
+    )
+
+    def clean(self) -> dict[str, Any]:
+        cleaned_data = super().clean()
         cleaned_data["top_n"] = cleaned_data.get("top_n") or DEFAULT_TOP_N
         cleaned_data["sort_by"] = (
             cleaned_data.get("sort_by") or TopSellingSortBy.REVENUE
         )
+        return cleaned_data
+
+
+class CustomerReportFilterForm(ReportDateRangeForm):
+    """Filter for the Customer report card — date range + Top N (no sort)."""
+
+    top_n = forms.IntegerField(
+        label="Top N",
+        required=False,
+        min_value=1,
+        max_value=MAX_TOP_N,
+        widget=forms.NumberInput(attrs={"min": 1, "max": MAX_TOP_N}),
+    )
+
+    def clean(self) -> dict[str, Any]:
+        cleaned_data = super().clean()
+        cleaned_data["top_n"] = cleaned_data.get("top_n") or DEFAULT_TOP_N
         return cleaned_data

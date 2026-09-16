@@ -3,9 +3,7 @@
 {% block page_class %}workspace-page{% endblock %}
 
 {% block content %}
-<div class="workspace-shell">
-  {% include "dashboard/includes/workspace_sidebar.html" %}
-
+<div class="workspace-shell workspace-shell-no-sidebar">
   <main class="workspace-content workspace-detail-content">
     <section class="workspace-panel inventory-detail-header" aria-labelledby="inventory-detail-heading">
       <a class="back-link" href="{% url 'dashboard:inventory-list' %}">Quay lại kho hàng</a>

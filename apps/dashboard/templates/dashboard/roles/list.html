@@ -2,50 +2,57 @@
 {% block title %}Vai trò — POS Management System{% endblock %}
 {% block content %}
 <div class="card">
-  <h1>Vai trò</h1>
-
-  <div class="toolbar">
-    <a class="btn btn-secondary" href="{% url 'dashboard:staff-list' %}">← Nhân viên</a>
-    {% if can_create %}
-      <a class="btn" href="{% url 'dashboard:role-create' %}" style="margin-left:auto">+ Tạo vai trò</a>
-    {% endif %}
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">Con người &amp; phân quyền</p>
+      <h1>Vai trò</h1>
+      <p class="section-description">Nhóm quyền hạn dùng chung để gán nhanh cho nhân viên.</p>
+    </div>
+    <div class="section-actions">
+      <a class="btn btn-quiet" href="{% url 'dashboard:staff-list' %}">← Nhân viên</a>
+      {% if can_create %}
+        <a class="btn" href="{% url 'dashboard:role-create' %}">+ Tạo vai trò</a>
+      {% endif %}
+    </div>
   </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Tên vai trò</th>
-        <th>Mô tả</th>
-        <th>Số quyền</th>
-        <th>Số nhân viên</th>
-        <th>Trạng thái</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for role in roles %}
+  <div class="table-scroll">
+    <table class="workspace-table">
+      <thead>
         <tr>
-          <td>{{ role.name }}</td>
-          <td>{{ role.description|default:"—" }}</td>
-          <td>{{ role.permissions.count }}</td>
-          <td>{{ role.users.count }}</td>
-          <td>
-            {% if role.is_active %}
-              <span class="badge badge-active">Đang hoạt động</span>
-            {% else %}
-              <span class="badge badge-inactive">Vô hiệu hoá</span>
-            {% endif %}
-          </td>
-          <td>
-            {% if can_update %}
-              <a href="{% url 'dashboard:role-edit' role.id %}">Sửa</a>
-            {% endif %}
-          </td>
+          <th>Tên vai trò</th>
+          <th>Mô tả</th>
+          <th>Số quyền</th>
+          <th>Số nhân viên</th>
+          <th>Trạng thái</th>
+          <th></th>
         </tr>
-      {% empty %}
-        <tr><td colspan="6" class="text-muted">Chưa có vai trò nào.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {% for role in roles %}
+          <tr class="selectable-row">
+            <td><strong>{{ role.name }}</strong></td>
+            <td>{{ role.description|default:"—" }}</td>
+            <td>{{ role.permissions.count }}</td>
+            <td>{{ role.users.count }}</td>
+            <td>
+              {% if role.is_active %}
+                <span class="status-pill status-active">Đang hoạt động</span>
+              {% else %}
+                <span class="status-pill status-inactive">Vô hiệu hoá</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if can_update %}
+                <a href="{% url 'dashboard:role-edit' role.id %}">Sửa</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="empty-state">Chưa có vai trò nào.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

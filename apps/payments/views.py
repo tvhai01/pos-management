@@ -136,10 +136,39 @@ class PaymentTransactionListView(GenericAPIView):
 class SePayWebhookView(GenericAPIView):
     permission_classes = (AllowAny,)
 
+    def get(self, request: Request) -> Any:
+        return success_response({"webhook": "ready", "method": "POST"})
+
     def post(self, request: Request) -> Any:
-        serializer = WebhookSerializer(data=request.data)
+        payload = dict(request.data)
+        aliases = {
+            "code": "order_invoice_number",
+            "content": "transaction_content",
+            "transactionContent": "transaction_content",
+            "description": "transaction_content",
+            "transferAmount": "amount_in",
+            "transferType": "transfer_type",
+            "transactionDate": "transaction_date",
+            "referenceCode": "reference",
+            "subAccount": "bank_account_xid",
+            "accountNumber": "account_number",
+            "gateway": "gateway",
+            "accumulated": "accumulated",
+        }
+        for source, target in aliases.items():
+            if source in payload and target not in payload:
+                payload[target] = payload[source]
+        if not payload.get("order_invoice_number") and payload.get("transaction_content"):
+            payload["order_invoice_number"] = payload["transaction_content"]
+        if not payload.get("transaction_id") and payload.get("id"):
+            payload["transaction_id"] = payload["id"]
+        serializer = WebhookSerializer(data=payload)
         serializer.is_valid(raise_exception=True)
-        signature = request.headers.get("X-SePay-Signature") or request.data.get("signature")
+        signature = (
+            request.headers.get("X-SePay-Signature")
+            or request.headers.get("Authorization")
+            or payload.get("signature")
+        )
         try:
             transaction = PaymentService.process_webhook(serializer.validated_data, signature)
         except ValueError as exc:

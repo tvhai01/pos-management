@@ -78,13 +78,38 @@ urlpatterns: list = [
     path("orders/", views.order_list, name="order-list"),
     path("orders/create/", views.order_create, name="order-create"),
     path("orders/<uuid:order_id>/", views.order_detail, name="order-detail"),
+    path(
+        "orders/customers/search/",
+        views.customer_search,
+        name="order-customer-search",
+    ),
+    path(
+        "orders/products/search/",
+        views.product_search,
+        name="order-product-search",
+    ),
     path("invoices/<uuid:invoice_id>/", views.invoice_detail, name="invoice-detail"),
     path(
         "invoices/<uuid:invoice_id>/pending/",
         views.invoice_pending,
         name="invoice-pending",
     ),
+    path(
+        "invoices/<uuid:invoice_id>/return/",
+        views.invoice_return,
+        name="invoice-return",
+    ),
+    path(
+        "payments/<uuid:payment_id>/status/",
+        views.payment_status,
+        name="payment-status",
+    ),
     path("invoices/<uuid:invoice_id>/qr/", views.invoice_qr, name="invoice-qr"),
+    path(
+        "invoices/<uuid:invoice_id>/sepay/",
+        views.invoice_sepay,
+        name="invoice-sepay",
+    ),
     path(
         "invoices/<uuid:invoice_id>/manual/",
         views.invoice_manual,
@@ -112,9 +137,39 @@ urlpatterns: list = [
     ),
     path("reports/", views.report_dashboard, name="report-dashboard"),
     path(
+        "reports/revenue/fragment/",
+        views.report_revenue_fragment,
+        name="report-revenue-fragment",
+    ),
+    path(
+        "reports/products/top-selling/fragment/",
+        views.report_top_selling_fragment,
+        name="report-top-selling-fragment",
+    ),
+    path(
+        "reports/inventory/fragment/",
+        views.report_inventory_fragment,
+        name="report-inventory-fragment",
+    ),
+    path(
+        "reports/payments/breakdown/fragment/",
+        views.report_payment_breakdown_fragment,
+        name="report-payment-breakdown-fragment",
+    ),
+    path(
+        "reports/customers/fragment/",
+        views.report_customers_fragment,
+        name="report-customers-fragment",
+    ),
+    path(
         "reports/revenue/export/",
         views.report_revenue_export,
         name="report-revenue-export",
+    ),
+    path(
+        "reports/revenue/insights/",
+        views.report_revenue_insights,
+        name="report-revenue-insights",
     ),
     path(
         "reports/products/top-selling/export/",
@@ -122,9 +177,19 @@ urlpatterns: list = [
         name="report-top-selling-export",
     ),
     path(
+        "reports/products/top-selling/insights/",
+        views.report_top_selling_insights,
+        name="report-top-selling-insights",
+    ),
+    path(
         "reports/inventory/export/",
         views.report_inventory_export,
         name="report-inventory-export",
+    ),
+    path(
+        "reports/inventory/insights/",
+        views.report_inventory_insights,
+        name="report-inventory-insights",
     ),
     path(
         "reports/payments/breakdown/export/",
@@ -132,8 +197,18 @@ urlpatterns: list = [
         name="report-payment-breakdown-export",
     ),
     path(
+        "reports/payments/breakdown/insights/",
+        views.report_payment_breakdown_insights,
+        name="report-payment-breakdown-insights",
+    ),
+    path(
         "reports/customers/export/",
         views.report_customers_export,
         name="report-customers-export",
+    ),
+    path(
+        "reports/customers/insights/",
+        views.report_customers_insights,
+        name="report-customers-insights",
     ),
 ]

@@ -1,8 +1,10 @@
 import logging
+import re
 import uuid
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -11,6 +13,8 @@ from apps.invoices.models import Invoice
 from apps.invoices.services import InvoiceService
 from apps.payments.constants import PaymentMethod, PaymentStatus, Provider, TransactionType
 from apps.payments.models import Payment, PaymentAudit, PaymentTransaction
+from apps.payments.momo import MoMoService
+from apps.payments.paypal import PayPalService
 from apps.payments.sepay import SePayService
 
 logger = logging.getLogger(__name__)
@@ -19,23 +23,190 @@ logger = logging.getLogger(__name__)
 class PaymentService:
     @staticmethod
     @transaction.atomic
-    def create_qr_payment(invoice_id, *, created_by=None, return_url: str = "") -> tuple[Payment, dict[str, object]]:
+    def create_sepay_payment(invoice_id, *, created_by=None, return_url: str = "") -> tuple[Payment, dict[str, object]]:
         invoice = Invoice.objects.select_for_update().get(id=invoice_id)
+        if invoice.status == InvoiceStatus.PAID:
+            raise ValueError("Invoice has already been paid.")
+        if invoice.status == InvoiceStatus.CANCELLED:
+            raise ValueError("Invoice is cancelled and cannot receive payment.")
+        if invoice.status == InvoiceStatus.DRAFT:
+            invoice.status = InvoiceStatus.PENDING_PAYMENT
+            invoice.updated_by = created_by
+            invoice.save(update_fields=["status", "updated_by", "updated_at"])
         if invoice.status != InvoiceStatus.PENDING_PAYMENT:
             raise ValueError("Invoice must be pending payment.")
         if invoice.total_amount <= 0:
             raise ValueError("Invoice total must be greater than zero.")
+
+        reference = f"SP-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
+        payment = Payment.objects.create(
+            invoice=invoice,
+            reference=reference,
+            provider_reference=reference,
+            amount=invoice.total_amount,
+            currency=invoice.currency,
+            payment_method=PaymentMethod.SEPAY,
+            expires_at=timezone.now() + timedelta(minutes=15),
+            created_by=created_by,
+            updated_by=created_by,
+        )
+        PaymentTransaction.objects.create(
+            payment=payment,
+            invoice=invoice,
+            provider=Provider.SEPAY,
+            provider_reference=reference,
+            transaction_type=TransactionType.PAYMENT,
+            amount=payment.amount,
+            currency=payment.currency,
+            status=PaymentStatus.PENDING,
+            payment_method=payment.payment_method,
+            transaction_content=reference,
+            processed_at=timezone.now(),
+            created_by=created_by,
+            updated_by=created_by,
+        )
+        checkout = SePayService.create_checkout(reference, payment.amount, payment.currency, return_url)
+        logger.info("payment.created payment=%s invoice=%s method=SEPAY", payment.id, invoice.id)
+        return payment, checkout
+
+    @staticmethod
+    @transaction.atomic
+    def create_qr_payment(invoice_id, *, created_by=None, return_url: str = "") -> tuple[Payment, dict[str, object]]:
+        invoice = Invoice.objects.select_for_update().get(id=invoice_id)
+        if invoice.status == InvoiceStatus.PAID:
+            raise ValueError("Invoice has already been paid.")
+        if invoice.status == InvoiceStatus.CANCELLED:
+            raise ValueError("Invoice is cancelled and cannot receive payment.")
+        if invoice.status == InvoiceStatus.DRAFT:
+            invoice.status = InvoiceStatus.PENDING_PAYMENT
+            invoice.updated_by = created_by
+            invoice.save(update_fields=["status", "updated_by", "updated_at"])
+        if invoice.status != InvoiceStatus.PENDING_PAYMENT:
+            raise ValueError("Invoice must be pending payment.")
+        if invoice.total_amount <= 0:
+            raise ValueError("Invoice total must be greater than zero.")
+        existing = (
+            Payment.objects.filter(
+                invoice=invoice,
+                payment_method=PaymentMethod.QR,
+                status=PaymentStatus.PENDING,
+                expires_at__gt=timezone.now(),
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if existing:
+            return existing, MoMoService.create_checkout(
+                existing.reference, existing.amount, existing.currency, return_url
+            )
         reference = f"PAY-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
         payment = Payment.objects.create(invoice=invoice, reference=reference, provider_reference=reference, amount=invoice.total_amount, currency=invoice.currency, payment_method=PaymentMethod.QR, expires_at=timezone.now() + timedelta(minutes=15), created_by=created_by, updated_by=created_by)
-        PaymentTransaction.objects.create(payment=payment, invoice=invoice, provider=Provider.SEPAY, provider_reference=reference, transaction_type=TransactionType.PAYMENT, amount=payment.amount, currency=payment.currency, status=PaymentStatus.PENDING, payment_method=payment.payment_method, transaction_content=reference, processed_at=timezone.now(), created_by=created_by, updated_by=created_by)
-        checkout = SePayService.create_checkout(reference, payment.amount, payment.currency, return_url)
+        PaymentTransaction.objects.create(payment=payment, invoice=invoice, provider=Provider.MOMO, provider_reference=reference, transaction_type=TransactionType.PAYMENT, amount=payment.amount, currency=payment.currency, status=PaymentStatus.PENDING, payment_method=payment.payment_method, transaction_content=reference, processed_at=timezone.now(), created_by=created_by, updated_by=created_by)
+        checkout = MoMoService.create_checkout(reference, payment.amount, payment.currency, return_url)
         logger.info("payment.created payment=%s invoice=%s", payment.id, invoice.id)
         return payment, checkout
 
     @staticmethod
     @transaction.atomic
+    def create_paypal_payment(invoice_id, *, created_by=None, return_url: str = "", cancel_url: str = "") -> tuple[Payment, dict[str, object]]:
+        invoice = Invoice.objects.select_for_update().get(id=invoice_id)
+        if invoice.status == InvoiceStatus.PAID:
+            raise ValueError("Invoice has already been paid.")
+        if invoice.status == InvoiceStatus.CANCELLED:
+            raise ValueError("Invoice is cancelled and cannot receive payment.")
+        if invoice.status == InvoiceStatus.DRAFT:
+            invoice.status = InvoiceStatus.PENDING_PAYMENT
+            invoice.updated_by = created_by
+            invoice.save(update_fields=["status", "updated_by", "updated_at"])
+        if invoice.status != InvoiceStatus.PENDING_PAYMENT:
+            raise ValueError("Invoice must be pending payment.")
+        if invoice.total_amount <= 0:
+            raise ValueError("Invoice total must be greater than zero.")
+
+        reference = f"PP-{timezone.now():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}"
+        payment = Payment.objects.create(
+            invoice=invoice,
+            reference=reference,
+            provider_reference=reference,
+            amount=invoice.total_amount,
+            currency=invoice.currency,
+            payment_method=PaymentMethod.PAYPAL,
+            expires_at=timezone.now() + timedelta(minutes=15),
+            created_by=created_by,
+            updated_by=created_by,
+        )
+        PaymentTransaction.objects.create(
+            payment=payment,
+            invoice=invoice,
+            provider=Provider.PAYPAL,
+            provider_reference=reference,
+            transaction_type=TransactionType.PAYMENT,
+            amount=payment.amount,
+            currency=payment.currency,
+            status=PaymentStatus.PENDING,
+            payment_method=payment.payment_method,
+            transaction_content=reference,
+            processed_at=timezone.now(),
+            created_by=created_by,
+            updated_by=created_by,
+        )
+        checkout = PayPalService.create_checkout(
+            reference, payment.amount, payment.currency, return_url or settings.PAYPAL_REDIRECT_URL, cancel_url or settings.PAYPAL_CANCEL_URL
+        )
+        order_payload = checkout.get("order") if isinstance(checkout, dict) else {}
+        payment.provider_reference = (
+            (order_payload or {}).get("paypal_order_id")
+            or checkout.get("paypal_order_id")
+            or checkout.get("qr_code")
+            or payment.provider_reference
+        )
+        payment.save(update_fields=["provider_reference", "updated_at"])
+        PaymentTransaction.objects.filter(payment=payment, provider=Provider.PAYPAL, status=PaymentStatus.PENDING).update(provider_reference=payment.provider_reference)
+        logger.info("payment.created payment=%s invoice=%s method=PAYPAL", payment.id, invoice.id)
+        return payment, checkout
+
+    @staticmethod
+    @transaction.atomic
+    def capture_paypal_payment(invoice_id, *, order_id: str, payer_id: str | None = None, created_by=None) -> Payment:
+        invoice = Invoice.objects.select_for_update().get(id=invoice_id)
+        payment = (
+            Payment.objects.select_for_update()
+            .filter(invoice=invoice, payment_method=PaymentMethod.PAYPAL)
+            .order_by("-created_at")
+            .first()
+        )
+        if payment is None:
+            raise ValueError("PayPal payment not found.")
+        if payment.status == PaymentStatus.SUCCESS:
+            return payment
+        response = PayPalService.capture_order(order_id)
+        status_value = str(response.get("status") or "").upper()
+        if status_value != "COMPLETED":
+            raise ValueError(f"PayPal capture not completed: {status_value or response}")
+        payment.status = PaymentStatus.SUCCESS
+        payment.processed_at = timezone.now()
+        payment.updated_by = created_by
+        payment.save(update_fields=["status", "processed_at", "updated_by", "updated_at"])
+        PaymentTransaction.objects.filter(payment=payment, provider=Provider.PAYPAL).update(
+            status=PaymentStatus.SUCCESS,
+            provider_transaction_id=order_id,
+            provider_reference=order_id,
+            processed_at=payment.processed_at,
+            raw_response=response,
+            updated_by=created_by,
+        )
+        InvoiceService.transition(invoice.id, InvoiceStatus.PAID, created_by)
+        logger.info("payment.success payment=%s method=PAYPAL order_id=%s", payment.id, order_id)
+        return payment
+
+    @staticmethod
+    @transaction.atomic
     def create_manual_payment(invoice_id, *, amount: Decimal, payment_date=None, reference: str = "", note: str = "", payer_information: str = "", created_by=None) -> Payment:
         invoice = Invoice.objects.select_for_update().get(id=invoice_id)
+        if invoice.status == InvoiceStatus.DRAFT:
+            invoice.status = InvoiceStatus.PENDING_PAYMENT
+            invoice.updated_by = created_by
+            invoice.save(update_fields=["status", "updated_by", "updated_at"])
         if invoice.status != InvoiceStatus.PENDING_PAYMENT:
             raise ValueError("Invoice must be pending payment.")
         if amount != invoice.total_amount:
@@ -53,26 +224,78 @@ class PaymentService:
         if not SePayService.verify_webhook(payload, supplied_signature):
             logger.warning("sepay.webhook.rejected")
             raise ValueError("Invalid webhook signature.")
-        reference = str(payload.get("order_invoice_number") or payload.get("reference") or "")
+        bank_account_xid = str(payload.get("bank_account_xid") or "")
+        expected_bank_account_xid = getattr(settings, "SEPAY_BANK_ACCOUNT_XID", "")
+        if expected_bank_account_xid and bank_account_xid and bank_account_xid != expected_bank_account_xid:
+            raise ValueError("Bank account mismatch.")
+        transfer_type = str(payload.get("transfer_type") or "").lower()
+        if transfer_type and transfer_type not in {"credit", "in"}:
+            raise ValueError("Only incoming credit transactions are accepted.")
+        content = str(
+            payload.get("transaction_content")
+            or payload.get("content")
+            or payload.get("order_invoice_number")
+            or payload.get("reference")
+            or ""
+        )
+        reference = str(
+            payload.get("order_invoice_number") or payload.get("reference") or ""
+        )
+        if not reference:
+            reference = content
         transaction_id = str(payload.get("transaction_id") or payload.get("id") or "")
         if not transaction_id:
             raise ValueError("Provider transaction ID is required.")
-        payment = Payment.objects.select_for_update().filter(reference=reference).first() or Payment.objects.select_for_update().filter(provider_reference=reference).first()
+        payment = (
+            Payment.objects.select_for_update().filter(reference=reference).first()
+            or Payment.objects.select_for_update()
+            .filter(provider_reference=reference)
+            .first()
+        )
+        if payment is None:
+            payment = (
+                Payment.objects.select_for_update()
+                .filter(invoice__invoice_number=reference, status=PaymentStatus.PENDING)
+                .order_by("-created_at")
+                .first()
+            )
+        if payment is None and reference:
+            normalized_reference = re.sub(r"[^A-Z0-9]", "", reference.upper())
+            candidates = Payment.objects.select_for_update().filter(
+                payment_method=PaymentMethod.SEPAY,
+                status=PaymentStatus.PENDING,
+                invoice__status=InvoiceStatus.PENDING_PAYMENT,
+            )
+            payment = next(
+                (
+                    candidate
+                    for candidate in candidates
+                    if re.sub(r"[^A-Z0-9]", "", candidate.reference.upper())
+                    == normalized_reference
+                ),
+                None,
+            )
         if payment is None:
             raise ValueError("Payment not found.")
-        amount = Decimal(str(payload.get("amount", "0")))
+        amount = Decimal(str(payload.get("amount_in") or payload.get("amount") or "0"))
         currency = str(payload.get("currency") or payment.currency).upper()
         if amount != payment.amount or currency != payment.currency:
             raise ValueError("Payment amount or currency mismatch.")
-        target_status = str(payload.get("status", PaymentStatus.SUCCESS)).upper()
-        if target_status not in PaymentStatus.values:
-            raise ValueError("Invalid payment status.")
         existing = PaymentTransaction.objects.filter(provider=Provider.SEPAY, provider_transaction_id=transaction_id).first() if transaction_id else None
         if existing:
             logger.info("sepay.transaction.duplicate transaction=%s", transaction_id)
             return existing
+        if payment.invoice.status == InvoiceStatus.PAID:
+            raise ValueError("Invoice is already paid.")
+        target_status = str(payload.get("status", PaymentStatus.SUCCESS)).upper()
+        if target_status not in PaymentStatus.values:
+            raise ValueError("Invalid payment status.")
         now = timezone.now()
-        ledger = PaymentTransaction.objects.create(payment=payment, invoice=payment.invoice, provider=Provider.SEPAY, provider_transaction_id=transaction_id or None, provider_reference=reference, transaction_type=TransactionType.PAYMENT, amount=amount, currency=currency, status=target_status, payment_method=payment.payment_method, transaction_content=str(payload.get("content", "")), raw_response=payload, processed_at=now, created_by=payment.created_by, updated_by=payment.updated_by)
+        raw_response = {
+            key: str(value) if isinstance(value, Decimal) else value
+            for key, value in payload.items()
+        }
+        ledger = PaymentTransaction.objects.create(payment=payment, invoice=payment.invoice, provider=Provider.SEPAY, provider_transaction_id=transaction_id or None, provider_reference=reference, transaction_type=TransactionType.PAYMENT, amount=amount, currency=currency, status=target_status, payment_method=payment.payment_method, transaction_content=content, raw_response=raw_response, processed_at=now, created_by=payment.created_by, updated_by=payment.updated_by)
         allowed = {PaymentStatus.PENDING: {PaymentStatus.PROCESSING, PaymentStatus.SUCCESS, PaymentStatus.FAILED, PaymentStatus.EXPIRED, PaymentStatus.CANCELLED}, PaymentStatus.PROCESSING: {PaymentStatus.SUCCESS, PaymentStatus.FAILED, PaymentStatus.EXPIRED, PaymentStatus.CANCELLED}, PaymentStatus.SUCCESS: set(), PaymentStatus.FAILED: set(), PaymentStatus.EXPIRED: set(), PaymentStatus.CANCELLED: set()}
         if target_status not in allowed[payment.status] and target_status != payment.status:
             raise ValueError(f"Invalid payment transition: {payment.status} -> {target_status}")
@@ -95,8 +318,6 @@ class PaymentService:
         payment.processed_at = timezone.now()
         payment.updated_by = cancelled_by
         payment.save(update_fields=["status", "processed_at", "updated_by", "updated_at"])
-        if payment.provider_reference:
-            SePayService.cancel_order(payment.provider_reference)
         logger.info("payment.cancelled payment=%s", payment.id)
         return payment
 

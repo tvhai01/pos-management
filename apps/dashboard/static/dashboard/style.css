@@ -55,13 +55,80 @@ a:hover {
 .navbar form {
   display: inline;
 }
-.navbar button.link-button {
+.link-button {
   background: none;
   border: none;
   color: var(--primary);
   cursor: pointer;
   padding: 0;
+  font: inherit;
   font-size: 0.9rem;
+}
+.link-button:hover {
+  text-decoration: underline;
+}
+
+/* Persistent secondary nav — every authenticated page, links to every
+   module the current user holds view access to (apps.dashboard.nav). */
+.nav-toggle-input {
+  display: none;
+}
+.nav-toggle {
+  display: none;
+  order: 2;
+  padding: 0.35rem 0.6rem;
+  color: var(--text);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.module-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 1.5rem;
+}
+.module-nav-item {
+  padding: 0.4rem 0.7rem;
+  color: var(--text-muted);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.module-nav-item:hover {
+  color: var(--text);
+  background: var(--bg);
+  text-decoration: none;
+}
+.module-nav-item.is-active {
+  color: #fff;
+  background: var(--primary);
+}
+@media (max-width: 720px) {
+  .nav-toggle {
+    display: block;
+  }
+  .navbar {
+    flex-wrap: wrap;
+  }
+  .navbar .nav-user {
+    order: 3;
+    width: 100%;
+    margin-top: 0.5rem;
+    justify-content: space-between;
+  }
+  .module-nav {
+    display: none;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .nav-toggle-input:checked ~ .module-nav {
+    display: flex;
+  }
 }
 
 .page {
@@ -75,6 +142,250 @@ a:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.5rem;
+}
+
+.order-page {
+  max-width: 100%;
+}
+.order-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.eyebrow {
+  color: var(--primary);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.45rem;
+}
+.order-hero h1 {
+  margin-bottom: 0.35rem;
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+}
+.order-subtitle {
+  color: var(--text-muted);
+  margin: 0;
+  font-size: 0.95rem;
+}
+.order-status {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.4rem 0.75rem;
+  white-space: nowrap;
+}
+.order-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(31, 36, 48, 0.06);
+  overflow: hidden;
+}
+.form-section {
+  padding: 1.5rem 1.75rem;
+}
+.form-section + .form-section {
+  border-top: 1px solid var(--border);
+}
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.section-number {
+  align-items: center;
+  background: #eff6ff;
+  border-radius: 7px;
+  color: var(--primary);
+  display: inline-flex;
+  flex: 0 0 2rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  height: 2rem;
+  justify-content: center;
+}
+.section-heading h2 {
+  font-size: 1rem;
+  margin: 0 0 0.2rem;
+}
+.section-heading p {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin: 0;
+}
+.field-label,
+.product-labels {
+  color: var(--text-muted);
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 700;
+  margin-bottom: 0.45rem;
+}
+.form-control,
+.order-row select,
+.order-row input {
+  background: #fff;
+  border: 1px solid #d5dae3;
+  border-radius: 7px;
+  color: var(--text);
+  font: inherit;
+  min-height: 2.7rem;
+  padding: 0.6rem 0.75rem;
+  width: 100%;
+}
+.form-control:focus,
+.order-row select:focus,
+.order-row input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  outline: none;
+}
+.section-heading-products {
+  align-items: center;
+}
+.section-heading-products > div {
+  flex: 1;
+}
+.add-product {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.add-product span,
+.order-actions .btn span {
+  font-size: 1.1rem;
+  line-height: 0;
+  vertical-align: -0.05em;
+}
+.product-labels,
+.order-row {
+  align-items: center;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) 8rem 2.5rem;
+}
+.product-labels {
+  grid-template-columns: minmax(0, 1fr) 8rem 2.5rem;
+  margin-bottom: 0.4rem;
+  padding: 0 0.25rem;
+  text-transform: uppercase;
+}
+.order-row {
+  margin-bottom: 0.65rem;
+}
+.remove-product {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 1.45rem;
+  height: 2.5rem;
+  line-height: 1;
+  width: 2.5rem;
+}
+.remove-product:hover:not(:disabled) {
+  background: #fef2f2;
+  color: var(--danger);
+}
+.remove-product:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+.order-actions {
+  align-items: center;
+  background: #fafbfc;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 0.65rem;
+  justify-content: flex-end;
+  padding: 1rem 1.75rem;
+}
+.order-actions .btn {
+  min-width: 8.5rem;
+  text-align: center;
+}
+
+.checkout-page {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 60vh;
+}
+.checkout-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(31, 36, 48, 0.06);
+  max-width: 32rem;
+  padding: 2.25rem;
+  text-align: center;
+  width: 100%;
+}
+.checkout-kicker {
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.checkout-card h1 {
+  margin: 0.5rem 0;
+}
+.checkout-card p {
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 1.25rem;
+}
+.sepay-qr {
+  display: block;
+  height: 240px;
+  margin: 1.25rem auto;
+  object-fit: contain;
+  width: 240px;
+}
+.checkout-error {
+  color: var(--danger) !important;
+}
+.checkout-back {
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 640px) {
+  .order-hero {
+    flex-direction: column;
+  }
+  .form-section {
+    padding: 1.25rem 1rem;
+  }
+  .section-heading-products {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .add-product {
+    margin-left: 2.75rem;
+  }
+  .product-labels {
+    display: none;
+  }
+  .order-row {
+    grid-template-columns: minmax(0, 1fr) 5.5rem 2rem;
+  }
+  .order-actions {
+    padding: 0.9rem 1rem;
+  }
+  .order-actions .btn {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 h1 {
@@ -120,6 +431,80 @@ h1 {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   font-size: 0.9rem;
+}
+
+/* Report filter — each report card owns its own independent filter form,
+   submitted in place via fetch (see dashboard/reports/index.html) so
+   filtering one card never reloads the page or the other cards. */
+.report-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1.75rem;
+  row-gap: 1rem;
+}
+.report-filter__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.report-filter__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.report-filter__field label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.report-filter__field input,
+.report-filter__field select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  background: var(--surface);
+  color: var(--text);
+  min-width: 150px;
+}
+.report-filter__field input:focus,
+.report-filter__field select:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+.report-filter__actions {
+  display: flex;
+  gap: 0.5rem;
+  align-self: flex-end;
+}
+
+/* Fixed-size wrapper so a Chart.js `responsive` doughnut/pie doesn't grow
+   to fill the full card width (its aspect ratio is ~1:1, so an unconstrained
+   parent makes it balloon to a huge square). */
+.chart-container--compact {
+  max-width: 260px;
+  margin: 0 auto 1rem;
+}
+
+@media (max-width: 640px) {
+  .report-filter {
+    gap: 1rem;
+  }
+  .report-filter__fields {
+    flex-direction: column;
+    width: 100%;
+  }
+  .report-filter__field input,
+  .report-filter__field select {
+    width: 100%;
+    min-width: 0;
+  }
+  .report-filter__actions {
+    width: 100%;
+  }
+  .report-filter__actions .btn {
+    flex: 1;
+  }
 }
 
 .btn {
@@ -214,6 +599,75 @@ th {
 }
 .alert-success { background: #dcfce7; color: #166534; }
 .alert-error { background: #fee2e2; color: #991b1b; }
+.alert-warning { background: #fef3c7; color: #92400e; }
+.alert-info { background: #dbeafe; color: #1e40af; }
+.alert-debug { background: #f3f4f6; color: #374151; }
+
+.payment-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+.manual-payment-form {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.8fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto;
+  gap: 0.6rem;
+  align-items: end;
+  width: 100%;
+}
+.payment-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.payment-field span {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.payment-field input {
+  background: #fff;
+  border: 1px solid #d5dae3;
+  border-radius: 7px;
+  color: var(--text);
+  font: inherit;
+  min-height: 2.7rem;
+  padding: 0.6rem 0.75rem;
+  width: 100%;
+}
+.payment-field input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  outline: none;
+}
+.manual-payment-form .btn {
+  min-height: 2.7rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .manual-payment-form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .payment-note-field {
+    grid-column: 1 / -1;
+  }
+  .manual-payment-form .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .manual-payment-form {
+    grid-template-columns: 1fr;
+  }
+  .payment-note-field {
+    grid-column: auto;
+  }
+}
 
 .login-page {
   min-height: 100vh;
@@ -247,38 +701,15 @@ th {
   border-radius: 10px;
 }
 
-.workspace-sidebar {
-  padding: 1rem 0.65rem;
-  background: #f1f4f8;
-  border-right: 1px solid #dfe5ed;
-}
-
-.workspace-nav-item {
-  display: block;
-  margin-bottom: 0.35rem;
-  padding: 0.72rem 0.8rem;
-  color: #536174;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.workspace-nav-item:hover {
-  color: #17315d;
-  background: #e8edf4;
-  text-decoration: none;
-}
-
-.workspace-nav-item.is-active {
-  color: #fff;
-  background: #2563eb;
-  border-color: #2563eb;
+/* Product/Inventory now rely on the persistent top module-nav
+   (base.html) instead of their own sidebar — no second column needed. */
+.workspace-shell-no-sidebar {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .workspace-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(210px, 250px);
+  grid-template-columns: minmax(0, 7fr) minmax(240px, 3fr);
   gap: 0.85rem;
   min-width: 0;
   padding: 0.85rem;
@@ -514,6 +945,65 @@ th {
 }
 
 .status-out {
+  color: #9a3434;
+  background: #fff7f7;
+  border-color: #e7c5c5;
+}
+
+/* Generic status-pill modifiers, reusable by any module (Customer, Staff,
+   Role, Order, Invoice, ...) — the .status-product-*/.status-low/.status-out
+   ones above stay Product/Inventory-specific naming, these are the shared
+   vocabulary for everything else. */
+.status-success {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.status-active {
+  color: #1d4ed8;
+  background: #f4f8ff;
+  border-color: #b9cff8;
+}
+.status-inactive {
+  color: #526175;
+  background: #f6f8fb;
+  border-color: #d8e0ea;
+}
+.status-warning {
+  color: #8a5900;
+  background: #fffaf0;
+  border-color: #ead8ad;
+}
+.status-danger,
+.status-blocked {
+  color: #9a3434;
+  background: #fff7f7;
+  border-color: #e7c5c5;
+}
+
+/* Order/Invoice lifecycle pills — same tint language, keyed to the
+   TextChoices values stored on Order.status / Invoice.status. */
+.status-order-draft,
+.status-invoice-draft {
+  color: #526175;
+  background: #f6f8fb;
+  border-color: #d8e0ea;
+}
+.status-order-pending_payment,
+.status-invoice-pending_payment {
+  color: #8a5900;
+  background: #fffaf0;
+  border-color: #ead8ad;
+}
+.status-order-paid,
+.status-order-completed,
+.status-invoice-paid {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.status-order-cancelled,
+.status-invoice-cancelled {
   color: #9a3434;
   background: #fff7f7;
   border-color: #e7c5c5;
@@ -1009,19 +1499,6 @@ th {
     display: block;
   }
 
-  .workspace-sidebar {
-    display: flex;
-    gap: 0.35rem;
-    overflow-x: auto;
-    border-right: 0;
-    border-bottom: 1px solid #dfe5ed;
-  }
-
-  .workspace-nav-item {
-    flex: 0 0 auto;
-    margin: 0;
-  }
-
   .workspace-content {
     padding: 0.65rem;
   }
@@ -1072,6 +1549,150 @@ th {
     width: 100%;
     text-align: center;
   }
+}
+
+/* Order builder (create form) and order hub (detail/payment) — generic
+   7:3 two-column layout, independent of the .workspace-* shell (no
+   sidebar/inspector semantics needed for these two pages). */
+.builder-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(260px, 3fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .builder-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Live search-as-you-type box (customer/product pickers). */
+.search-box {
+  position: relative;
+}
+
+.search-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.search-result-item {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  color: #27364d;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid #eef1f5;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.search-result-item:last-child {
+  border-bottom: 0;
+}
+
+.search-result-item:hover,
+.search-result-item:focus {
+  background: #f4f8ff;
+}
+
+.search-result-empty {
+  padding: 0.6rem 0.75rem;
+  color: #8a95a5;
+  font-size: 0.8rem;
+}
+
+/* Selected-customer card + order cart table (orders/form.html). */
+.selected-card {
+  padding: 0.85rem;
+  background: #f4f8ff;
+  border: 1px solid #b9cff8;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.selected-card .selected-card-title {
+  margin: 0 0 0.2rem;
+  color: #17315d;
+  font-weight: 650;
+}
+
+.selected-card .selected-card-clear {
+  margin-top: 0.4rem;
+  color: var(--danger);
+  font-size: 0.78rem;
+}
+
+.order-summary-panel {
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #dfe5ed;
+  border-radius: 8px;
+}
+
+.order-summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  font-size: 0.85rem;
+}
+
+.order-summary-row.is-total {
+  margin-top: 0.4rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #e5eaf0;
+  font-weight: 650;
+}
+
+/* Payment panel (orders/detail.html — step 2 of the order flow). */
+.payment-panel {
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #dfe5ed;
+  border-radius: 8px;
+}
+
+.payment-method-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* The narrow payment panel (~3/10 of the page) can't fit
+   .manual-payment-form's normal 4-column grid (built for a full-width
+   card) — stack every field instead, and give the revealed form some
+   visual separation from the buttons above it. */
+.payment-panel .manual-payment-form {
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid #e5eaf0;
+}
+
+.payment-panel .manual-payment-form .btn {
+  width: 100%;
+}
+
+.payment-qr-box {
+  text-align: center;
+}
+
+.payment-qr-box img {
+  max-width: 220px;
+  margin: 0.5rem auto;
 }
 
 @media (prefers-color-scheme: dark) {

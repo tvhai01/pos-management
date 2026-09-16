@@ -252,3 +252,24 @@ gán vào role Quản lý khi triển khai.
 - [ ] Convert sang prompt kỹ thuật theo [`docs/prompt-features.md`](prompt-features.md)
 - [ ] Triển khai theo [README.md § Quy tắc Coding & Triển khai](../README.md#quy-tắc-coding--triển-khai)
 - [ ] Ghi lại kết quả tại `docs/sprint_5.md`
+
+## 14. Addendum — AI Insight (bổ sung 2026-09-14)
+
+Bổ sung sau khi 5 báo cáo ở mục 8 đã triển khai xong (Sprint 5), theo yêu
+cầu: mỗi báo cáo có thêm biểu đồ trực quan và một lớp phân tích AI sinh
+nhận xét + đề xuất bằng tiếng Việt dựa trên số liệu đang xem. Không phải
+report builder tuỳ biến (vẫn nằm trong Non-goal §4) — chỉ là một lớp diễn
+giải thêm cho 5 báo cáo cố định đã có.
+
+- **Nguồn AI**: chuỗi fallback **Gemini API (chính) → Groq API (dự phòng)
+  → rule-based engine tự viết (cuối, luôn chạy được)**. Quyết định vì cả
+  Gemini và Groq đều có free tier thật, và rule-based đảm bảo tính năng
+  không phụ thuộc hoàn toàn dịch vụ ngoài (không có API key vẫn hoạt động
+  bình thường).
+- **Kích hoạt**: nút bấm "Phân tích AI" riêng mỗi báo cáo trên dashboard,
+  không tự động gọi khi đổi filter — tránh tốn quota free tier.
+- **Không gửi PII ra ngoài**: báo cáo khách hàng loại bỏ tên khách hàng
+  khỏi payload gửi cho Gemini/Groq, chỉ giữ `customer_code` và số liệu.
+- **Cache**: kết quả cache theo Redis, khoá theo loại báo cáo + tham số
+  filter, TTL cấu hình qua `AI_INSIGHT_CACHE_TTL` (mặc định 900s).
+- Xem chi tiết thiết kế/quyết định tại `docs/sprint_7.md`.
