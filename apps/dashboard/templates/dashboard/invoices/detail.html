@@ -13,6 +13,7 @@
           <p class="section-description">Khách hàng: {{ invoice.customer.full_name }}</p>
         </div>
         <div class="section-actions">
+          <a class="btn btn-secondary" href="{% url 'dashboard:invoice-print' invoice.id %}" target="_blank" rel="noopener">In hóa đơn</a>
           <span class="status-pill status-invoice-{{ invoice.status|lower }}">{{ invoice.get_status_display }}</span>
         </div>
       </div>
@@ -78,6 +79,7 @@
         <div><dt>Mã tham chiếu</dt><dd>{{ latest_success_payment.reference }}</dd></div>
       </div>
     {% endif %}
+    <a class="btn btn-block" href="{% url 'dashboard:invoice-print' invoice.id %}" target="_blank" rel="noopener" style="margin-top:0.75rem">In hóa đơn</a>
 
   {% elif active_sepay_payment %}
     <p class="section-description">Quét mã VietQR bên dưới để thanh toán qua SePay.</p>

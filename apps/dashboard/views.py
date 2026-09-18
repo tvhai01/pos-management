@@ -21,6 +21,7 @@ from django.core.paginator import Paginator
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.accounts.constants import PermissionAction, PermissionResource
@@ -1241,6 +1242,33 @@ def invoice_detail(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
     )
 
 
+@require_permission("view", "invoice")
+def invoice_print(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
+    """Render a print-friendly receipt for an invoice."""
+    invoice = InvoiceSelector.get_by_id(invoice_id)
+    if invoice is None:
+        messages.error(request, "Không tìm thấy hóa đơn.")
+        return redirect("dashboard:invoice-list")
+    items = invoice.order.items.all() if invoice.order_id else []
+    payments = invoice.payments.filter(status=PaymentStatus.SUCCESS).order_by(
+        "processed_at"
+    )
+    paid_amount = sum((payment.amount for payment in payments), Decimal("0"))
+    return render(
+        request,
+        "dashboard/invoices/print.html",
+        {
+            "invoice": invoice,
+            "items": items,
+            "payments": payments,
+            "paid_amount": paid_amount,
+            "change_amount": max(paid_amount - invoice.total_amount, Decimal("0")),
+            "cashier": _authenticated_user(request),
+            "printed_at": timezone.now(),
+        },
+    )
+
+
 @require_POST
 @require_permission("update", "invoice")
 def invoice_pending(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
@@ -1328,7 +1356,7 @@ def invoice_sepay(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
 
 @require_permission("view", "invoice")
 def invoice_return(request: HttpRequest, invoice_id: UUID) -> HttpResponse:
-    """Sync invoice state after returning from a payment provider and send user back to the order."""
+    """Sync invoice state after returning from a payment provider."""
     try:
         invoice = InvoiceSelector.get_by_id(invoice_id)
         token = request.GET.get("token") or request.GET.get("paymentId")

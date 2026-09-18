@@ -94,6 +94,7 @@
           <div><dt>Mã tham chiếu</dt><dd>{{ latest_success_payment.reference }}</dd></div>
         </div>
       {% endif %}
+      <a class="btn btn-block" href="{% url 'dashboard:invoice-print' invoice.id %}" target="_blank" rel="noopener" style="margin-top:0.75rem">In hóa đơn</a>
 
     {% elif active_sepay_payment %}
       <p class="section-description">Quét mã VietQR bên dưới để thanh toán qua SePay.</p>

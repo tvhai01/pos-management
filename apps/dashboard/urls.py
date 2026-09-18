@@ -90,6 +90,11 @@ urlpatterns: list = [
     ),
     path("invoices/<uuid:invoice_id>/", views.invoice_detail, name="invoice-detail"),
     path(
+        "invoices/<uuid:invoice_id>/print/",
+        views.invoice_print,
+        name="invoice-print",
+    ),
+    path(
         "invoices/<uuid:invoice_id>/pending/",
         views.invoice_pending,
         name="invoice-pending",
