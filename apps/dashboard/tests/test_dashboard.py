@@ -16,11 +16,17 @@ Tests cover:
 All tests follow the Arrange-Act-Assert (AAA) pattern.
 """
 
+import uuid
+
 import pytest
 from django.test import Client
 
-from apps.accounts.models import User
+from apps.accounts.constants import PermissionAction, PermissionResource
+from apps.accounts.models import Permission, Role, User, UserRole
 from apps.customers.models import Customer
+from apps.invoices.models import Invoice
+from apps.orders.services import OrderService
+from apps.product.models import Product
 
 # =============================================================================
 # Login / Logout
@@ -421,3 +427,115 @@ class TestCustomerDeleteView:
         assert response.status_code == 302
         assert not Customer.objects.filter(id=create_customer.id).exists()
         assert Customer.all_objects.filter(id=create_customer.id).exists()
+
+
+# =============================================================================
+# Invoice Print
+# =============================================================================
+
+
+@pytest.fixture
+def view_invoice_permission() -> Permission:
+    """Create a 'view invoice' permission."""
+    return Permission.objects.create(
+        name="View Invoice",
+        action=PermissionAction.VIEW,
+        resource=PermissionResource.INVOICE,
+    )
+
+
+@pytest.fixture
+def user_with_invoice_role(
+    create_user: User, view_invoice_permission: Permission
+) -> User:
+    """Assign `view:invoice` to the standard test user."""
+    role = Role.objects.create(name="Invoice Viewer")
+    role.permissions.set([view_invoice_permission])
+    UserRole.objects.create(user=create_user, role=role)
+    return create_user
+
+
+@pytest.fixture
+def invoice_for_print(
+    create_user: User, create_customer: Customer, product: Product
+) -> Invoice:
+    """Create an invoice linked to an order with one line item."""
+    _, invoice = OrderService.create_order(
+        customer=create_customer,
+        items=[{"product_id": product.id, "quantity": 2}],
+        created_by=create_user,
+    )
+    return invoice
+
+
+@pytest.mark.django_db
+class TestInvoicePrintView:
+    """Tests for GET /invoices/{id}/print/."""
+
+    def url(self, invoice_id: object) -> str:
+        """Build the print URL for a given invoice ID."""
+        return f"/invoices/{invoice_id}/print/"
+
+    def test_requires_login(self, client: Client, invoice_for_print: Invoice) -> None:
+        """Test that an anonymous visit is redirected to login."""
+        # Arrange & Act
+        response = client.get(self.url(invoice_for_print.id))
+
+        # Assert
+        assert response.status_code == 302
+        assert "/login/" in response.url
+
+    def test_requires_permission(
+        self,
+        client: Client,
+        create_user: User,
+        user_data: dict[str, str],
+        invoice_for_print: Invoice,
+    ) -> None:
+        """Test that view:invoice is required."""
+        # Arrange
+        client.login(email=user_data["email"], password=user_data["password"])
+
+        # Act
+        response = client.get(self.url(invoice_for_print.id))
+
+        # Assert
+        assert response.status_code == 403
+
+    def test_renders_receipt(
+        self,
+        client: Client,
+        user_with_invoice_role: User,
+        user_data: dict[str, str],
+        invoice_for_print: Invoice,
+    ) -> None:
+        """Test that the receipt renders with invoice and item details."""
+        # Arrange
+        client.login(email=user_data["email"], password=user_data["password"])
+
+        # Act
+        response = client.get(self.url(invoice_for_print.id))
+
+        # Assert
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "HÓA ĐƠN BÁN HÀNG" in content
+        assert invoice_for_print.invoice_number in content
+        assert "Mineral Water" in content
+
+    def test_missing_invoice_redirects(
+        self,
+        client: Client,
+        user_with_invoice_role: User,
+        user_data: dict[str, str],
+    ) -> None:
+        """Test that an unknown invoice id redirects to the invoice list."""
+        # Arrange
+        client.login(email=user_data["email"], password=user_data["password"])
+
+        # Act
+        response = client.get(self.url(uuid.uuid4()))
+
+        # Assert
+        assert response.status_code == 302
+        assert response.url == "/invoices/"

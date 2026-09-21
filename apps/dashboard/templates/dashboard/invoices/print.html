@@ -1,0 +1,286 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <title>Hóa đơn {{ invoice.invoice_number }} — POS Management System</title>
+  <style>
+    :root {
+      --ink: #1c2430;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --accent: #0f4c81;
+      --accent-dark: #0b3a63;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      font-size: 13px;
+      color: var(--ink);
+      background: #eceff3;
+      padding: 24px 0 40px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .actions {
+      width: 380px;
+      margin: 0 auto 14px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    .actions button, .actions a {
+      font: inherit;
+      font-weight: 600;
+      padding: 9px 26px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .actions button {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+    }
+    .actions button:hover { background: var(--accent-dark); }
+    .actions a {
+      border: 1px solid #c9ced6;
+      background: #fff;
+      color: var(--ink);
+    }
+    .actions a:hover { background: #f0f2f5; }
+
+    .receipt {
+      width: 380px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 18px rgba(15, 40, 70, 0.12);
+      overflow: hidden;
+    }
+
+    .receipt-head {
+      background: var(--accent);
+      color: #fff;
+      text-align: center;
+      padding: 20px 20px 16px;
+    }
+    .store-name {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+    .doc-title {
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      opacity: 0.85;
+    }
+    .invoice-no {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 3px 14px;
+      border: 1px dashed rgba(255,255,255,0.6);
+      border-radius: 4px;
+      font-family: "Courier New", monospace;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .receipt-body { padding: 16px 22px 20px; }
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .divider { border: 0; border-top: 1px dashed #c9ced6; margin: 14px 0; }
+
+    .meta { width: 100%; border-collapse: collapse; }
+    .meta td { padding: 2px 0; vertical-align: top; }
+    .meta td:first-child { color: var(--muted); white-space: nowrap; padding-right: 14px; }
+    .meta td:last-child { font-weight: 500; }
+
+    .items { width: 100%; border-collapse: collapse; }
+    .items th {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: left;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--line);
+    }
+    .items th.num, .items td.num { text-align: right; }
+    .items td { padding: 7px 0; vertical-align: top; border-bottom: 1px solid #f0f2f5; }
+    .items tr:last-child td { border-bottom: 0; }
+    .item-name { display: block; font-weight: 600; }
+    .item-sub {
+      display: block;
+      margin-top: 1px;
+      font-size: 11px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    .totals { width: 100%; border-collapse: collapse; }
+    .totals td { padding: 2.5px 0; }
+    .totals td:first-child { color: var(--muted); }
+    .totals td:last-child { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .grand-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      padding: 9px 14px;
+      background: var(--ink);
+      color: #fff;
+      border-radius: 6px;
+    }
+    .grand-bar .lbl { font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+    .grand-bar .val { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    .status-note {
+      margin-top: 12px;
+      padding: 6px;
+      border: 1px dashed #b45309;
+      border-radius: 6px;
+      background: #fef3e2;
+      color: #92400e;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .receipt-foot { text-align: center; padding: 0 22px 18px; }
+    .barcode {
+      height: 34px;
+      margin: 4px auto 4px;
+      background: repeating-linear-gradient(
+        90deg,
+        var(--ink) 0 2px, transparent 2px 4px,
+        var(--ink) 4px 5px, transparent 5px 8px,
+        var(--ink) 8px 11px, transparent 11px 13px,
+        var(--ink) 13px 14px, transparent 14px 17px
+      );
+    }
+    .barcode-text { font-family: "Courier New", monospace; font-size: 11px; letter-spacing: 2px; }
+    .thanks { margin-top: 8px; font-size: 12px; }
+    .printed { margin-top: 3px; font-size: 10px; color: var(--muted); }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .actions { display: none; }
+      .receipt { width: 76mm; border-radius: 0; box-shadow: none; }
+      @page { margin: 4mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="actions">
+    <a href="{% url 'dashboard:invoice-detail' invoice.id %}">← Quay về</a>
+    <button type="button" onclick="window.print()">In hóa đơn</button>
+  </div>
+
+  <div class="receipt">
+    <div class="receipt-head">
+      <div class="store-name">POS Management System</div>
+      <div class="doc-title">HÓA ĐƠN BÁN HÀNG</div>
+      <div class="invoice-no">{{ invoice.invoice_number }}</div>
+    </div>
+
+    <div class="receipt-body">
+      <table class="meta">
+        {% if invoice.order_id %}<tr><td>Đơn hàng</td><td>{{ invoice.order.order_number }}</td></tr>{% endif %}
+        <tr><td>Ngày</td><td>{{ invoice.created_at|date:"d/m/Y H:i" }}</td></tr>
+        {% if invoice.paid_at %}<tr><td>Thanh toán</td><td>{{ invoice.paid_at|date:"d/m/Y H:i" }}</td></tr>{% endif %}
+        <tr><td>Thu ngân</td><td>{{ cashier.full_name|default:cashier.email }}</td></tr>
+        <tr><td>Khách hàng</td><td>{{ invoice.customer.full_name }} ({{ invoice.customer.customer_code }})</td></tr>
+        {% if invoice.customer.phone %}<tr><td>Điện thoại</td><td>{{ invoice.customer.phone }}</td></tr>{% endif %}
+      </table>
+
+      <hr class="divider">
+
+      <div class="section-label">Chi tiết đơn hàng</div>
+      <table class="items">
+        <thead>
+          <tr>
+            <th>Sản phẩm</th>
+            <th class="num">SL</th>
+            <th class="num">Thành tiền</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+            <tr>
+              <td>
+                <span class="item-name">{{ item.product_name }}</span>
+                <span class="item-sub">{{ item.product_sku }} · {{ item.unit_price|floatformat:0|intcomma }} {{ invoice.currency }}</span>
+              </td>
+              <td class="num">{{ item.quantity|floatformat:"-3" }}</td>
+              <td class="num">{{ item.total_amount|floatformat:0|intcomma }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3">Không có sản phẩm.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <hr class="divider">
+
+      <table class="totals">
+        <tr><td>Tạm tính</td><td>{{ invoice.subtotal|floatformat:0|intcomma }} {{ invoice.currency }}</td></tr>
+        {% if invoice.discount %}<tr><td>Giảm giá</td><td>-{{ invoice.discount|floatformat:0|intcomma }} {{ invoice.currency }}</td></tr>{% endif %}
+        {% if invoice.tax %}<tr><td>Thuế</td><td>{{ invoice.tax|floatformat:0|intcomma }} {{ invoice.currency }}</td></tr>{% endif %}
+      </table>
+
+      <div class="grand-bar">
+        <span class="lbl">TỔNG CỘNG</span>
+        <span class="val">{{ invoice.total_amount|floatformat:0|intcomma }} {{ invoice.currency }}</span>
+      </div>
+
+      <table class="totals" style="margin-top:8px">
+        <tr><td>Đã thanh toán</td><td>{{ paid_amount|floatformat:0|intcomma }} {{ invoice.currency }}</td></tr>
+        {% if change_amount %}<tr><td>Tiền thừa</td><td>{{ change_amount|floatformat:0|intcomma }} {{ invoice.currency }}</td></tr>{% endif %}
+      </table>
+
+      {% if payments %}
+        <hr class="divider">
+        <div class="section-label">Phương thức thanh toán</div>
+        <table class="totals">
+          {% for payment in payments %}
+            <tr>
+              <td>{{ payment.get_payment_method_display }}{% if payment.processed_at %} · {{ payment.processed_at|date:"d/m/Y H:i" }}{% endif %}</td>
+              <td>{{ payment.amount|floatformat:0|intcomma }}</td>
+            </tr>
+          {% endfor %}
+        </table>
+      {% endif %}
+
+      {% if invoice.status != "PAID" %}
+        <div class="status-note">HÓA ĐƠN {{ invoice.get_status_display|upper }} — CHƯA THANH TOÁN</div>
+      {% endif %}
+    </div>
+
+    <div class="receipt-foot">
+      <div class="barcode"></div>
+      <div class="barcode-text">{{ invoice.invoice_number }}</div>
+      <div class="thanks">Cảm ơn quý khách. Hẹn gặp lại!</div>
+      <div class="printed">In lúc: {{ printed_at|date:"d/m/Y H:i" }}</div>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener("load", function () { window.print(); });
+  </script>
+</body>
+</html>
